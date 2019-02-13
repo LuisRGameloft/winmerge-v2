@@ -67,16 +67,6 @@ enum
 	SAVE_CANCELLED, /**< Saving was cancelled */  
 };
 
-enum MERGEVIEW_INDEX_TYPE
-{
-	MERGEVIEW_PANE0 = 0,         /**< Pane0 MergeView */
-	MERGEVIEW_PANE1,             /**< Pane1 MergeView */
-	MERGEVIEW_PANE2,             /**< Pane2 MergeView */
-	MERGEVIEW_PANE0_DETAIL = 10, /**< Pane0 DetailView */
-	MERGEVIEW_PANE1_DETAIL,      /**< Pane1 DetailView */
-	MERGEVIEW_PANE2_DETAIL,      /**< Pane2 DetailView */
-};
-
 /**
  * @brief Types for buffer. Buffer's type defines behavior
  * of buffer when saving etc.
@@ -143,6 +133,7 @@ class PrediffingInfo;
 class CChildFrame;
 class CDirDoc;
 class CEncodingErrorBar;
+class CLocationView;
 
 /**
  * @brief Document class for merging two files
@@ -165,6 +156,7 @@ public:
 
 	std::unique_ptr<CDiffTextBuffer> m_ptBuf[3]; /**< Left/Middle/Right side text buffer */
 	int m_nBuffers;
+	int m_nGroups;
 
 protected: // create from serialization only
 	CMergeDoc();
@@ -180,8 +172,8 @@ public:
 	/// String of concatenated filenames as text to apply plugins filter to
 	String m_strBothFilenames;
 
-	int GetActiveMergeViewIndexType() const;
 	CMergeEditView * GetActiveMergeView();
+	CMergeEditView * GetActiveMergeGroupView(int nBuffer);
 	void UpdateHeaderPath(int pane);
 	void UpdateHeaderActivity(int pane, bool bActivate);
 	void RefreshOptions();
@@ -193,12 +185,14 @@ public:
 	void RescanIfNeeded(float timeOutInSecond);
 	int Rescan(bool &bBinary, IDENTLEVEL &identical, bool bForced = false);
 	void CheckFileChanged(void);
+	int ShowMessageBox(const String& sText, unsigned nType = MB_OK, unsigned nIDHelp = 0);
 	void ShowRescanError(int nRescanResult, IDENTLEVEL identical);
 	bool Undo();
 	void CopyAllList(int srcPane, int dstPane);
-	void CopyMultipleList(int srcPane, int dstPane, int firstDiff, int lastDiff);
+	void CopyMultipleList(int srcPane, int dstPane, int firstDiff, int lastDiff, int firstWordDiff = -1, int lastWordDiff = -1);
 	void DoAutoMerge(int dstPane);
 	bool SanityCheckDiff(DIFFRANGE dr) const;
+	bool WordListCopy(int srcPane, int dstPane, int nDiff, int nFirstWordDiff, int nLastWordDiff, std::vector<int> *pWordDiffIndice, bool bGroupWithPrevious = false, bool bUpdateView = true);
 	bool ListCopy(int srcPane, int dstPane, int nDiff = -1, bool bGroupWithPrevious = false, bool bUpdateView = true);
 	bool TrySaveAs(String& strPath, int &nLastErrorCode, String & sError,
 		int nBuffer, PackingInfo * pInfoTempUnpacker);
@@ -212,16 +206,53 @@ public:
 	void SetUnpacker(const PackingInfo * infoUnpacker);
 	void SetPrediffer(const PrediffingInfo * infoPrediffer);
 	void GetPrediffer(PrediffingInfo * infoPrediffer);
-	void SetMergeViews(CMergeEditView * pView[]);
-	void SetMergeDetailViews(CMergeEditView * pView[]);
+	void AddMergeViews(CMergeEditView * pView[3]);
+	void RemoveMergeViews(int nGroup);
+	void SetLocationView(CLocationView *pLocationView) { m_pLocationView = pLocationView; }
+
 	void SetDirDoc(CDirDoc * pDirDoc);
 	CDirDoc * GetDirDoc() const { return m_pDirDoc; }
 	void DirDocClosing(CDirDoc * pDirDoc);
 	bool CloseNow();
 	void SwapFiles();
 
-	CMergeEditView * GetView(int pane) const { return m_pView[pane]; }
-	CMergeEditView * GetDetailView(int pane) const { return m_pDetailView[pane]; }
+	CMergeEditView * GetView(int group, int buffer) const { return m_pView[group][buffer]; }
+	CLocationView * GetLocationView() { return m_pLocationView; }
+	std::vector<CMergeEditView *> GetViewList(int nGroup = -1, int nBuffer = -1) const {
+		std::vector<CMergeEditView *> list;
+		if (nGroup != -1)
+			for (int nBuffer2 = 0; nBuffer2 < m_nBuffers; ++nBuffer2)
+				list.push_back(m_pView[nGroup][nBuffer2]);
+		else if (nBuffer != -1)
+			for (int nGroup2 = 0; nGroup2 < m_nGroups; ++nGroup2)
+				list.push_back(m_pView[nGroup2][nBuffer]);
+		else
+		{
+			for (int nGroup3 = 0; nGroup3 < m_nGroups; nGroup3++)
+				for (int nBuffer3 = 0; nBuffer3 < m_nBuffers; ++nBuffer3)
+					list.push_back(m_pView[nGroup3][nBuffer3]);
+		}
+		return list;
+	}
+	template <typename Function>
+	void ForEachView(int nBuffer, Function func) {
+		for (int nGroup = 0; nGroup < m_nGroups; nGroup++)
+			func(m_pView[nGroup][nBuffer]);
+	}
+	template <typename Function>
+	void ForEachView(Function func) {
+		for (int nBuffer = 0; nBuffer < m_nBuffers; ++nBuffer)
+		{
+			for (int nGroup = 0; nGroup < m_nGroups; nGroup++)
+				func(m_pView[nGroup][nBuffer]);
+		}
+	}
+	template <typename Function>
+	void ForEachActiveGroupView(Function func) {
+		int nGroup = GetActiveMergeView()->m_nThisGroup;
+		for (int nBuffer = 0; nBuffer < m_nBuffers; ++nBuffer)
+			func(m_pView[nGroup][nBuffer]);
+	}
 	CChildFrame * GetParentFrame();
 
 	void AddSyncPoint();
@@ -263,8 +294,8 @@ public:
 	FileChange IsFileChangedOnDisk(LPCTSTR szPath, DiffFileInfo &dfi,
 		bool bSave, int nBuffer);
 	bool PromptAndSaveIfNeeded(bool bAllowCancel);
-	std::vector<CMergeEditView*> undoTgt;
-	std::vector<CMergeEditView*>::iterator curUndo;
+	std::vector<int> undoTgt;
+	std::vector<int>::iterator curUndo;
 	void FlushAndRescan(bool bForced = false);
 	void SetCurrentDiff(int nDiff);
 	int GetCurrentDiff() const { return m_nCurDiff; }
@@ -301,8 +332,8 @@ private:
 // Implementation data
 protected:
 	int m_nCurDiff; /**< Selected diff, 0-based index, -1 if no diff selected */
-	CMergeEditView * m_pView[3]; /**< Pointer to left/middle/right view */
-	CMergeEditView * m_pDetailView[3];
+	CMergeEditView * m_pView[3][3]; /**< Pointer to left/middle/right view */
+	CLocationView * m_pLocationView; /**< Pointer to locationview */
 	CDirDoc * m_pDirDoc;
 	bool m_bEnableRescan; /**< Automatic rescan enabled/disabled */
 	COleDateTime m_LastRescan; /**< Time of last rescan (for delaying) */ 
@@ -336,21 +367,18 @@ protected:
 	afx_msg void OnUpdateStatusNum(CCmdUI* pCmdUI);
 	afx_msg void OnUpdatePluginName(CCmdUI* pCmdUI);
 	afx_msg void OnFileReload();
-	afx_msg void OnUpdateFileReload(CCmdUI* pCmdUI);
 	afx_msg void OnFileEncoding();
-	afx_msg void OnUpdateFileEncoding(CCmdUI* pCmdUI);
 	afx_msg void OnDiffContext(UINT nID);
 	afx_msg void OnUpdateDiffContext(CCmdUI* pCmdUI);
 	afx_msg void OnToolsGenerateReport();
 	afx_msg void OnToolsGeneratePatch();
 	afx_msg void OnCtxtOpenWithUnpacker();
-	afx_msg void OnUpdateCtxtOpenWithUnpacker(CCmdUI* pCmdUI);
 	afx_msg void OnBnClickedFileEncoding();
 	afx_msg void OnBnClickedPlugin();
 	afx_msg void OnBnClickedHexView();
 	afx_msg void OnOK();
 	afx_msg void OnFileRecompareAsXML();
-	afx_msg void OnFileRecompareAsBinary();
+	afx_msg void OnFileRecompareAs(UINT nID);
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 private:

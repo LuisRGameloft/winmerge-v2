@@ -14,14 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#ifndef _WIN32
-#include <strings.h>
-#endif
 #include "charsets.h"
-
-#ifdef _WIN32
-#define strcasecmp(a, b) _stricmp((a), (b))
-#endif
 
 enum { no, yes };
 
@@ -983,7 +976,7 @@ static int CompareByName(const void *elem1, const void *elem2)
 {
 	const struct _charsetInfo *p = *(const struct _charsetInfo **)elem1;
 	const struct _charsetInfo *q = *(const struct _charsetInfo **)elem2;
-	return strcasecmp(p->charset, q->charset);
+	return _stricmp(p->charset, q->charset);
 }
 
 static int CompareByCodePage(const void *elem1, const void *elem2)
@@ -1008,7 +1001,7 @@ static struct _charsetInfo const *FindByName(const char *name)
 		struct _charsetInfo const key = {0, name, 0, no};
 		struct _charsetInfo const *pkey = &key;
 		struct _charsetInfo const **pinfo = (struct _charsetInfo **)bsearch(&pkey, index1, numCharsetInfo, sizeof *index1, CompareByName);
-		if (pinfo)
+		if (pinfo != NULL)
 		{
 			info = *pinfo;
 		}
@@ -1031,7 +1024,7 @@ static struct _charsetInfo const *FindByCodePage(unsigned codepage)
 		struct _charsetInfo const key = {0, 0, codepage, no};
 		struct _charsetInfo const *pkey = &key;
 		struct _charsetInfo const **pinfo = (struct _charsetInfo **)bsearch(&pkey, index3, numIndex, sizeof(void *), CompareByCodePage);
-		if (pinfo) do
+		if (pinfo != NULL) do
 		{
 			info = *pinfo;
 		} while (pinfo > index3 && CompareByCodePage(--pinfo, &pkey) == 0);
@@ -1044,17 +1037,19 @@ void charsets_init(void)
 	size_t i;
 	size_t numIndex = charsetInfo[numCharsetInfo - 1].id + 1;
 	index1 = (struct _charsetInfo **)calloc(numCharsetInfo, sizeof(void *));
+	index2 = (struct _charsetInfo **)calloc(numIndex, sizeof(void *));
+	index3 = (struct _charsetInfo **)calloc(numIndex, sizeof(void *));
+	if (!index1 || !index2 || !index3)
+		return;
 	for (i = numCharsetInfo ; i-- ; )
 	{
 		index1[i] = charsetInfo + i;
 	}
 	qsort((void*)index1, numCharsetInfo, sizeof(void *), CompareByName);
-	index2 = (struct _charsetInfo **)calloc(numIndex, sizeof(void *));
 	for (i = numCharsetInfo ; i-- ; )
 	{
 		index2[charsetInfo[i].id] = charsetInfo + i;
 	}
-	index3 = (struct _charsetInfo **)calloc(numIndex, sizeof(void *));
 	for (i = numCharsetInfo + 1 ; i-- ; )
 	{
 		index3[charsetInfo[i].id] = charsetInfo + i;

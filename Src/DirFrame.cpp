@@ -78,8 +78,8 @@ static UINT RO_PANEL_WIDTH = 30;
 IMPLEMENT_DYNCREATE(CDirFrame, CMDIChildWnd)
 
 CDirFrame::CDirFrame()
-: m_hIdentical(NULL)
-, m_hDifferent(NULL)
+: m_hIdentical(nullptr)
+, m_hDifferent(nullptr)
 {
 }
 
@@ -184,10 +184,14 @@ IHeaderBar * CDirFrame::GetHeaderInterface() {
  */
 void CDirFrame::ActivateFrame(int nCmdShow) 
 {
+	// load docking positions and sizes
+	CDockState dockState;
+	dockState.LoadState(_T("Settings-DirFrame"));
+	SetDockState(dockState);
 	// get the active child frame, and a flag whether it is maximized
-	BOOL bMaximized;
+	BOOL bMaximized = FALSE;
 	CMDIChildWnd * oldActiveFrame = GetMDIFrame()->MDIGetActive(&bMaximized);
-	if (oldActiveFrame == NULL)
+	if (oldActiveFrame == nullptr)
 		// for the first frame, get the restored/maximized state from the registry
 		bMaximized = theApp.GetProfileInt(_T("Settings"), _T("ActiveFrameMax"), TRUE);
 	if (bMaximized)
@@ -251,6 +255,10 @@ BOOL CDirFrame::DestroyWindow()
 		wp.length = sizeof(WINDOWPLACEMENT);
 		GetWindowPlacement(&wp);
 		theApp.WriteProfileInt(_T("Settings"), _T("ActiveFrameMax"), (wp.showCmd == SW_MAXIMIZE));
+		// save docking positions and sizes
+		CDockState dockState;
+		GetDockState(dockState);
+		dockState.SaveState(_T("Settings-DirFrame"));
 	}
 
 	return CMDIChildWnd::DestroyWindow();

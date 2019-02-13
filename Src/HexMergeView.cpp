@@ -46,8 +46,8 @@ static HRESULT NTAPI SE(BOOL f)
 	if (f)
 		return S_OK;
 	HRESULT hr = (HRESULT)::GetLastError();
-	ASSERT(hr);
-	if (hr == 0)
+	ASSERT(hr != NULL);
+	if (hr == NULL)
 		hr = E_UNEXPECTED;
 	return hr;
 }
@@ -103,7 +103,7 @@ END_MESSAGE_MAP()
  * @brief Constructor.
  */
 CHexMergeView::CHexMergeView()
-: m_pif(0)
+: m_pif(nullptr)
 , m_nThisPane(0)
 {
 }
@@ -113,7 +113,20 @@ CHexMergeView::CHexMergeView()
  */
 void CHexMergeView::OnDraw(CDC *)
 {
-	ASSERT(FALSE);
+	ASSERT(false);
+}
+
+/**
+ * @brief returns true if heksedit.dll is loadable
+ */
+bool CHexMergeView::IsLoadable()
+{
+	static void *pv = nullptr;
+	if (pv == nullptr)
+	{
+		pv = LoadLibrary(_T("Frhed\\hekseditU.dll"));
+	}
+	return pv != nullptr;
 }
 
 /**
@@ -121,18 +134,8 @@ void CHexMergeView::OnDraw(CDC *)
  */
 BOOL CHexMergeView::PreCreateWindow(CREATESTRUCT& cs)
 {
-	static void *pv = NULL;
-	if (pv == NULL)
-	{
-		static const CLSID clsid = { 0xBCA3CA6B, 0xCC6B, 0x4F79,
-			{ 0xA2, 0xC2, 0xDD, 0xBE, 0x86, 0x4B, 0x1C, 0x90 } };
-		if (FAILED(::CoGetClassObject(clsid, CLSCTX_INPROC_SERVER, NULL, IID_IUnknown, &pv)))
-		{
-			pv = LoadLibrary(_T("Frhed\\hekseditU.dll"));
-			if (!pv)
-				LangMessageBox(IDS_FRHED_NOTINSTALLED, MB_OK);
-		}
-	}
+	if (!IsLoadable())
+		LangMessageBox(IDS_FRHED_NOTINSTALLED, MB_OK);
 	cs.lpszClass = _T("heksedit");
 	cs.style |= WS_HSCROLL | WS_VSCROLL;
 	return TRUE;
@@ -146,7 +149,7 @@ int CHexMergeView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if (CView::OnCreate(lpCreateStruct) == -1)
 		return -1;
 	m_pif = reinterpret_cast<IHexEditorWindow *>(::GetWindowLongPtr(m_hWnd, GWLP_USERDATA));
-	if (m_pif == 0 || m_pif->get_interface_version() < HEKSEDIT_INTERFACE_VERSION)
+	if (m_pif == nullptr || m_pif->get_interface_version() < HEKSEDIT_INTERFACE_VERSION)
 		return -1;
 	return 0;
 }
@@ -171,7 +174,7 @@ void CHexMergeView::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar * pScrollBar)
 		SetScrollInfo(SB_HORZ, &si);
 	}
 	CView::OnHScroll(nSBCode, nPos, pScrollBar);
-	if (pScrollBar)
+	if (pScrollBar != nullptr)
 	{
 		GetScrollInfo(SB_HORZ, &si, SIF_ALL | SIF_DISABLENOSCROLL);
 		if (nSBCode != SB_THUMBTRACK)
@@ -241,9 +244,9 @@ int CHexMergeView::GetLength()
 /**
  * @brief Checks if file has changed since last update
  * @param [in] path File to check
- * @return TRUE if file is changed.
+ * @return `true` if file is changed.
  */
-BOOL CHexMergeView::IsFileChangedOnDisk(LPCTSTR path)
+bool CHexMergeView::IsFileChangedOnDisk(LPCTSTR path)
 {
 	DiffFileInfo dfi;
 	dfi.Update(path);
@@ -303,12 +306,12 @@ HRESULT CHexMergeView::SaveFile(LPCTSTR path)
 	}
 	// Ask user what to do about FILE_ATTRIBUTE_READONLY
 	String strPath = path;
-	BOOL bApplyToAll = FALSE;
-	if (theApp.HandleReadonlySave(strPath, FALSE, bApplyToAll) == IDCANCEL)
+	bool bApplyToAll = false;
+	if (theApp.HandleReadonlySave(strPath, false, bApplyToAll) == IDCANCEL)
 		return S_OK;
 	path = strPath.c_str();
 	// Take a chance to create a backup
-	if (!theApp.CreateBackup(FALSE, path))
+	if (!theApp.CreateBackup(false, path))
 		return S_OK;
 	// Write data to an intermediate file
 	String tempPath = env::GetTemporaryPath();
@@ -349,9 +352,9 @@ HRESULT CHexMergeView::SaveFile(LPCTSTR path)
 /**
  * @brief Get modified flag
  */
-BOOL CHexMergeView::GetModified()
+bool CHexMergeView::GetModified()
 {
-	return m_pif->get_status()->iFileChanged;
+	return m_pif->get_status()->iFileChanged != 0;
 }
 
 /**
@@ -373,7 +376,7 @@ void CHexMergeView::ClearUndoRecords()
 /**
  * @brief Get readonly flag
  */
-BOOL CHexMergeView::GetReadOnly()
+bool CHexMergeView::GetReadOnly()
 {
 	return m_pif->get_settings()->bReadOnly;
 }
@@ -381,7 +384,7 @@ BOOL CHexMergeView::GetReadOnly()
 /**
  * @brief Set readonly flag
  */
-void CHexMergeView::SetReadOnly(BOOL bReadOnly)
+void CHexMergeView::SetReadOnly(bool bReadOnly)
 {
 	m_pif->get_settings()->bReadOnly = bReadOnly;
 }

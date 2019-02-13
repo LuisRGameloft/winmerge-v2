@@ -40,11 +40,11 @@ void CColorButton::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 /** 
  * @brief Sets new button color
  * @param [in] crlFill New color
- * @param [in] bInvalidate If TRUE button is invalidated (causing redraw)
+ * @param [in] bInvalidate If `true` button is invalidated (causing redraw)
  */
-void CColorButton::SetColor(COLORREF clrFill, BOOL bInvalidate /* = TRUE*/)
+void CColorButton::SetColor(COLORREF clrFill, bool bInvalidate /* = true*/)
 {
 	m_clrFill = clrFill;
-	if (bInvalidate && m_hWnd)
+	if (bInvalidate && m_hWnd != nullptr)
 		Invalidate();
 }

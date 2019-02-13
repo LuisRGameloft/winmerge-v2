@@ -19,7 +19,7 @@ IMPLEMENT_DYNAMIC(DirCmpReportDlg, CTrDialog)
 /**
  * @brief Constructor.
  */
-DirCmpReportDlg::DirCmpReportDlg(CWnd* pParent /*=NULL*/)
+DirCmpReportDlg::DirCmpReportDlg(CWnd* pParent /*= nullptr*/)
 	: CTrDialog(DirCmpReportDlg::IDD, pParent)
 	, m_bCopyToClipboard(false)
 	, m_bIncludeFileCmpReport(false)
@@ -138,8 +138,7 @@ void DirCmpReportDlg::OnBtnClickReportBrowse()
 	String filter = tr(f_types[m_ctlStyle.GetCurSel()].browseFilter);
 
 	String chosenFilepath;
-	if (SelectFile(GetSafeHwnd(), chosenFilepath, folder.c_str(), _("Save As"),
-			filter, FALSE))
+	if (SelectFile(GetSafeHwnd(), chosenFilepath, false, folder.c_str(), _T(""), filter))
 	{
 		m_sReportFile = chosenFilepath;
 		m_ctlReportFile.SetWindowText(chosenFilepath.c_str());

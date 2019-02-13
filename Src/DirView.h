@@ -36,8 +36,6 @@
 
 class FileActionScript;
 
-struct DIFFITEM;
-
 typedef enum { eMain, eContext } eMenuType;
 
 class CDirDoc;
@@ -58,7 +56,7 @@ struct IListCtrl;
 /**
  * @brief Position value for special items (..) in directory compare view.
  */
-const uintptr_t SPECIAL_ITEM_POS = (uintptr_t) - 1L;
+const uintptr_t SPECIAL_ITEM_POS = (uintptr_t)(reinterpret_cast<DIFFITEM *>( - 1L));
 
 /** Default column width in directory compare */
 const UINT DefColumnWidth = 150;
@@ -96,11 +94,11 @@ public:
 
 	void StartCompare(CompareStats *pCompareStats);
 	void Redisplay();
-	void RedisplayChildren(uintptr_t diffpos, int level, UINT &index, int &alldiffs);
+	void RedisplayChildren(DIFFITEM *diffpos, int level, UINT &index, int &alldiffs);
 	void UpdateResources();
 	void LoadColumnHeaderItems();
-	uintptr_t GetItemKey(int idx) const;
-	int GetItemIndex(uintptr_t key);
+	DIFFITEM *GetItemKey(int idx) const;
+	int GetItemIndex(DIFFITEM *key);
 	// for populating list
 	void DeleteItem(int sel);
 	void DeleteAllDisplayItems();
@@ -119,6 +117,7 @@ public:
 	void MoveToPrevDiff();
 	void OpenNextDiff();
 	void OpenPrevDiff();
+	void SetActivePane(int pane);
 
 // Implementation types
 private:
@@ -167,7 +166,7 @@ public:
 private:
 	void InitiateSort();
 	void NameColumn(const char* idname, int subitem);
-	int AddNewItem(int i, uintptr_t diffpos, int iImage, int iIndent);
+	int AddNewItem(int i, DIFFITEM *diffpos, int iImage, int iIndent);
 // End DirViewCols.cpp
 
 private:
@@ -192,7 +191,7 @@ protected:
 	int GetLastDifferentItem();
 	int AddSpecialItems();
 	void GetCurrentColRegKeys(std::vector<String>& colKeys);
-	void OpenSpecialItems(uintptr_t pos1, uintptr_t pos2, uintptr_t pos3);
+	void OpenSpecialItems(DIFFITEM *pos1, DIFFITEM *pos2, DIFFITEM *pos3);
 
 // Implementation data
 protected:
@@ -205,11 +204,11 @@ protected:
 	bool m_bExpandSubdirs;
 	CFont m_font; /**< User-selected font */
 	UINT m_nHiddenItems; /**< Count of items we have hidden */
-	bool m_bTreeMode; /**< TRUE if tree mode is on*/
+	bool m_bTreeMode; /**< `true` if tree mode is on*/
 	DirViewFilterSettings m_dirfilter;
 	std::unique_ptr<DirCompProgressBar> m_pCmpProgressBar;
 	clock_t m_compareStart; /**< Starting process time of the compare */
-	bool m_bUserCancelEdit; /**< TRUE if the user cancels rename */
+	bool m_bUserCancelEdit; /**< `true` if the user cancels rename */
 	String m_lastCopyFolder; /**< Last Copy To -target folder. */
 
 	int m_firstDiffItem;
@@ -224,17 +223,16 @@ protected:
 	HMENU m_hCurrentMenu; /**< Current shell context menu (either left or right) */
 	std::unique_ptr<DirViewTreeState> m_pSavedTreeState;
 	std::unique_ptr<DirViewColItems> m_pColItems;
+	int m_nActivePane;
 
 	// Generated message map functions
 	afx_msg void OnColumnClick(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnContextMenu(CWnd*, CPoint point);
 	//{{AFX_MSG(CDirView)
 	afx_msg void OnLButtonDblClk(UINT nFlags, CPoint point);
-	template<SIDE_TYPE srctype, SIDE_TYPE dsttype>
-	afx_msg void OnDirCopy();
+	afx_msg void OnDirCopy(UINT id);
 	template<SIDE_TYPE srctype, SIDE_TYPE dsttype>
 	afx_msg void OnCtxtDirCopy();
-	template<SIDE_TYPE srctype, SIDE_TYPE dsttype>
 	afx_msg void OnUpdateDirCopy(CCmdUI* pCmdUI);
 	template<SIDE_TYPE srctype, SIDE_TYPE dsttype>
 	afx_msg void OnUpdateCtxtDirCopy(CCmdUI* pCmdUI);
@@ -301,7 +299,6 @@ protected:
 	afx_msg void OnCtxtDirZip();
 	template<SIDE_TYPE stype>
 	afx_msg void OnCtxtDirShellContextMenu();
-	afx_msg void OnUpdateCtxtDir(CCmdUI* pCmdUI);
 	afx_msg void OnSelectAll();
 	afx_msg void OnUpdateSelectAll(CCmdUI* pCmdUI);
 	afx_msg void OnPluginPredifferMode(UINT nID);
@@ -360,13 +357,12 @@ protected:
 	template<SELECTIONTYPE seltype>
 	afx_msg void OnMergeCompare2();
 	afx_msg void OnMergeCompareXML();
-	afx_msg void OnMergeCompareHex();
+	afx_msg void OnMergeCompareAs(UINT nID);
 	afx_msg void OnUpdateMergeCompare(CCmdUI *pCmdUI);
 	template<SELECTIONTYPE seltype>
 	afx_msg void OnUpdateMergeCompare2(CCmdUI *pCmdUI);
 	afx_msg void OnViewCompareStatistics();
 	afx_msg void OnFileEncoding();
-	afx_msg void OnUpdateFileEncoding(CCmdUI* pCmdUI);
 	afx_msg void OnHelp();
 	afx_msg void OnEditCopy();
 	afx_msg void OnEditCut();
@@ -384,18 +380,18 @@ protected:
 	afx_msg void OnBnClickedComparisonContinue();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
-	BOOL OnHeaderBeginDrag(LPNMHEADER hdr, LRESULT* pResult);
-	BOOL OnHeaderEndDrag(LPNMHEADER hdr, LRESULT* pResult);
+	bool OnHeaderBeginDrag(LPNMHEADER hdr, LRESULT* pResult);
+	bool OnHeaderEndDrag(LPNMHEADER hdr, LRESULT* pResult);
 
 private:
-	void OpenSelection(SELECTIONTYPE selectionType = SELECTIONTYPE_NORMAL, PackingInfo * infoUnpacker = NULL);
-	void OpenSelectionHex();
+	void OpenSelection(SELECTIONTYPE selectionType = SELECTIONTYPE_NORMAL, PackingInfo * infoUnpacker = nullptr);
+	void OpenSelectionAs(UINT id);
 	bool GetSelectedItems(int * sel1, int * sel2, int * sel3);
 	void OpenParentDirectory();
 	template<SIDE_TYPE srctype, SIDE_TYPE dsttype>
 	void DoUpdateDirCopy(CCmdUI* pCmdUI, eMenuType menuType);
-	const DIFFITEM & GetDiffItem(int sel) const;
-	DIFFITEM & GetDiffItem(int sel);
+	const DIFFITEM &GetDiffItem(int sel) const;
+	DIFFITEM &GetDiffItem(int sel);
 	int GetSingleSelectedItem() const;
 	void MoveFocus(int currentInd, int i, int selCount);
 

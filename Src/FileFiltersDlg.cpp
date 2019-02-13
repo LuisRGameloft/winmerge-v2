@@ -313,7 +313,7 @@ void FileFiltersDlg::OnInfoTip(NMHDR * pNMHDR, LRESULT * pResult)
 {
 	LVHITTESTINFO lvhti = {0};
 	NMLVGETINFOTIP * pInfoTip = reinterpret_cast<NMLVGETINFOTIP*>(pNMHDR);
-	ASSERT(pInfoTip);
+	ASSERT(pInfoTip != nullptr);
 
 	// Get subitem under mouse cursor
 	lvhti.pt = m_ptLastMousePos;
@@ -368,7 +368,7 @@ void FileFiltersDlg::OnBnClickedFilterfileTestButton()
 
 	FileFilterMgr *pMgr = theApp.m_pGlobalFileFilter->GetManager();
 	FileFilter * pFileFilter = pMgr->GetFilterByPath(m_sFileFilterPath);
-	if (!pFileFilter)
+	if (pFileFilter == nullptr)
 		return;
 
 	CTestFilterDlg dlg(this, pFileFilter, pMgr);
@@ -426,8 +426,8 @@ void FileFiltersDlg::OnBnClickedFilterfileNewbutton()
 		path = paths::AddTrailingSlash(path);
 	
 	String s;
-	if (SelectFile(GetSafeHwnd(), s, path.c_str(), _("Select filename for new filter"), _("File Filters (*.flt)|*.flt|All Files (*.*)|*.*||"),
-		FALSE))
+	if (SelectFile(GetSafeHwnd(), s, false, path.c_str(), _("Select filename for new filter"),
+		_("File Filters (*.flt)|*.flt|All Files (*.*)|*.*||")))
 	{
 		// Fix file extension
 		TCHAR file[_MAX_FNAME] = {0};
@@ -557,8 +557,8 @@ void FileFiltersDlg::OnBnClickedFilterfileInstall()
 	String path;
 	String userPath = theApp.m_pGlobalFileFilter->GetUserFilterPathWithCreate();
 
-	if (SelectFile(GetSafeHwnd(), s, path.c_str(), _("Locate filter file to install"), _("File Filters (*.flt)|*.flt|All Files (*.*)|*.*||"),
-		TRUE))
+	if (SelectFile(GetSafeHwnd(), s, true, path.c_str(),_("Locate filter file to install"),
+		_("File Filters (*.flt)|*.flt|All Files (*.*)|*.*||")))
 	{
 		userPath = paths::ConcatPath(userPath, paths::FindFileName(s));
 		if (!CopyFile(s.c_str(), userPath.c_str(), TRUE))

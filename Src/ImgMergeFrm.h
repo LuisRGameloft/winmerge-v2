@@ -63,7 +63,7 @@ public:
 	void SetDirDoc(CDirDoc * pDirDoc);
 	void UpdateResources();
 	bool CloseNow();
-	void DirDocClosing(CDirDoc * pDirDoc) { m_pDirDoc = NULL; }
+	void DirDocClosing(CDirDoc * pDirDoc) { m_pDirDoc = nullptr; }
 	void SetSharedMenu(HMENU hMenu) { m_hMenuShared = hMenu; };
 	void SetLastCompareResult(int nResult);
 	void UpdateLastCompareResult();
@@ -75,6 +75,7 @@ public:
 	bool IsFileChangedOnDisk(int pane) const;
 	void CheckFileChanged(void);
 	String GetDescription(int pane) const { return m_strDesc[pane]; }
+	static bool IsLoadable();
 
 // Attributes
 protected:
@@ -96,7 +97,7 @@ public:
 
 // Implementation
 private:
-	BOOL EnsureValidDockState(CDockState& state);
+	bool EnsureValidDockState(CDockState& state);
 	void LoadOptions();
 	void SaveOptions();
 	void SavePosition();
@@ -151,7 +152,8 @@ private:
 	afx_msg void OnUpdateRightReadOnly(CCmdUI* pCmdUI);
 	afx_msg void OnFileReload();
 	afx_msg void OnFileClose();
-	afx_msg void OnFileRecompareAsBinary();
+	afx_msg void OnFileRecompareAs(UINT nId);
+	afx_msg void OnUpdateFileRecompareAs(CCmdUI* pCmdUI);
 	afx_msg void OnWindowChangePane();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnIdleUpdateCmdUI();

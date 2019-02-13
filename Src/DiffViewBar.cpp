@@ -20,8 +20,7 @@ IMPLEMENT_DYNAMIC(CDiffViewBar, TViewBarBase);
 //////////////////////////////////////////////////////////////////////
 
 CDiffViewBar::CDiffViewBar()
-: m_pwndDetailSplitter(0)
-, m_hwndFrame(NULL)
+: m_hwndFrame(nullptr)
 {
 }
 
@@ -34,7 +33,6 @@ CDiffViewBar::~CDiffViewBar()
 BEGIN_MESSAGE_MAP(CDiffViewBar, TViewBarBase)
 	//{{AFX_MSG_MAP(CRegBar)
 	ON_WM_CREATE()
-	ON_WM_SIZE()
 	ON_WM_LBUTTONDOWN()
 	ON_WM_WINDOWPOSCHANGED()
 	//}}AFX_MSG_MAP
@@ -51,9 +49,9 @@ END_MESSAGE_MAP()
 */
 BOOL CDiffViewBar::Create(
 	CWnd* pParentWnd,
-	LPCTSTR lpszWindowName,
-	DWORD dwStyle,
-	UINT nID)
+	LPCTSTR lpszWindowName /*= nullptr*/,
+	DWORD dwStyle /*= WS_CHILD | WS_VISIBLE | CBRS_TOP*/,
+	UINT nID /*= AFX_IDW_PANE_FIRST*/)
 {
 	return TViewBarBase::Create(
 		lpszWindowName,
@@ -74,25 +72,6 @@ int CDiffViewBar::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-/// update height for both panels
-void CDiffViewBar::UpdateBarHeight(int DiffPanelHeight)
-{
-	if (m_pwndDetailSplitter == NULL || ::IsWindow(m_pwndDetailSplitter->m_hWnd) == FALSE)
-		return;
-
-	// first resize the splitter
-	CRect rc;
-	GetClientRect(rc);
-	m_pwndDetailSplitter->MoveWindow(rc);
-	m_pwndDetailSplitter->RecalcLayout();
-}
-
-void CDiffViewBar::OnSize(UINT nType, int cx, int cy) 
-{
-	TViewBarBase::OnSize(nType, cx, cy);
-	UpdateBarHeight(-1);
-}
-
 /**
 * @note The window must always be docked after movement
 * there are too much troubles if we get reparented to some minidockbar 
@@ -101,9 +80,9 @@ void CDiffViewBar::OnSize(UINT nType, int cx, int cy)
 void CDiffViewBar::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	TViewBarBase::OnLButtonDown(nFlags, point);
-	if (m_pDockBar != NULL)
+	if (m_pDockBar != nullptr)
 	{
-		if (IsHorzDocked() == FALSE)
+		if (!IsHorzDocked())
 			m_pDockContext->ToggleDocking();
 	}
 }
@@ -117,7 +96,7 @@ void CDiffViewBar::OnWindowPosChanged(WINDOWPOS* lpwndpos)
 {
 	TViewBarBase::OnWindowPosChanged(lpwndpos);
 
-	if (m_hwndFrame != NULL)
+	if (m_hwndFrame != nullptr)
 	{
 		// If WINDOWPOS.flags has SWP_HIDEWINDOW flag set
 		if ((lpwndpos->flags & SWP_HIDEWINDOW) != 0)

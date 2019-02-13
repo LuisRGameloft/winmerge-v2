@@ -32,16 +32,13 @@ THE SOFTWARE.
 #include <cstdio>
 #include <cassert>
 #include <memory>
-#include <cstdint>
 #include <Poco/SharedMemory.h>
 #include <Poco/Exception.h>
 #include "UnicodeString.h"
 #include "unicoder.h"
 #include "paths.h" // paths::GetLongbPath()
 #include "TFile.h"
-#ifdef _WIN32
 #include <windows.h>
-#endif
 
 using Poco::SharedMemory;
 using Poco::Exception;
@@ -129,7 +126,6 @@ bool UniLocalFile::DoGetFileStatus()
 	try
 	{
 		m_filesize = TFile(m_filepath).getSize();
-#ifdef _WIN32
 		if (m_filesize == 0)
 		{
 			// if m_filesize equals zero, the file size is really zero or the file is a symbolic link.
@@ -137,11 +133,11 @@ bool UniLocalFile::DoGetFileStatus()
 			// if the file is not symbolic link, GetCompressedFileSize() will return zero.
 			// NOTE: GetCompressedFileSize() returns error for pre-W2K windows versions
 			DWORD dwFileSizeLow, dwFileSizeHigh;
-			dwFileSizeLow = GetCompressedFileSize(m_filepath.c_str(), &dwFileSizeHigh);
+			
+			dwFileSizeLow = GetCompressedFileSize(TFile(m_filepath).wpath().c_str(), &dwFileSizeHigh);
 			if (GetLastError() == 0)
 				m_filesize = ((int64_t)dwFileSizeHigh << 32) + dwFileSizeLow;
 		}
-#endif
 		m_statusFetched = 1;
 
 		return true;
@@ -182,26 +178,26 @@ void UniLocalFile::LastErrorCustom(const String& desc)
 /////////////
 
 UniMemFile::UniMemFile()
-		: m_hMapping(NULL)
-		, m_base(NULL)
-		, m_data(NULL)
-		, m_current(NULL)
+		: m_hMapping(nullptr)
+		, m_base(nullptr)
+		, m_data(nullptr)
+		, m_current(nullptr)
 {
 }
 
 void UniMemFile::Close()
 {
 	Clear();
-	if (m_base)
+	if (m_base != nullptr)
 	{
-		m_base = 0;
+		m_base = nullptr;
 	}
-	m_data = NULL;
-	m_current = NULL;
-	if (m_hMapping != NULL)
+	m_data = nullptr;
+	m_current = nullptr;
+	if (m_hMapping != nullptr)
 	{
 		delete m_hMapping;
-		m_hMapping = NULL;
+		m_hMapping = nullptr;
 	}
 }
 
@@ -273,7 +269,7 @@ bool UniMemFile::DoOpen(const String& filename, AccessMode mode)
 	catch (Exception& e)
 	{
 		LastErrorCustom(ucr::toTString(e.displayText()));
-		m_hMapping = NULL;
+		m_hMapping = nullptr;
 		return false;
 	}
 
@@ -381,8 +377,8 @@ void UniMemFile::SetBom(bool bom)
 /**
  * @brief Read one (DOS or UNIX or Mac) line. Do not include eol chars.
  * @param [out] line Line read.
- * @param [out] lossy TRUE if there were lossy encoding.
- * @return TRUE if there is more lines to read, TRUE when last line is read.
+ * @param [out] lossy `true` if there were lossy encoding.
+ * @return `true` if there is more lines to read, `false` when last line is read.
  */
 bool UniMemFile::ReadString(String & line, bool * lossy)
 {
@@ -431,7 +427,7 @@ static void RecordZero(UniFile::txtstats & txstats, size_t offset)
  * @brief Read one (DOS or UNIX or Mac) line.
  * @param [out] line Line read.
  * @param [out] eol EOL bytes read (if any).
- * @param [out] lossy TRUE if there were lossy encoding.
+ * @param [out] lossy `true` if there were lossy encoding.
  * @return true if there is more lines to read, false when last line is read.
  */
 bool UniMemFile::ReadString(String & line, String & eol, bool * lossy)
@@ -446,7 +442,7 @@ bool UniMemFile::ReadString(String & line, String & eol, bool * lossy)
 	if (m_unicoding == ucr::UCS2LE)
 	{
 		int cchLine = 0;
-		// If there aren't any wchars left in the file, return FALSE to indicate EOF
+		// If there aren't any wchars left in the file, return `false` to indicate EOF
 		if (m_current - m_base + 1 >= m_filesize)
 			return false;
 		// Loop through wchars, watching for eol chars or zero
@@ -492,7 +488,7 @@ bool UniMemFile::ReadString(String & line, String & eol, bool * lossy)
 	if (m_unicoding == ucr::NONE && ucr::EqualCodepages(m_codepage, GetACP()))
 	{
 		int cchLine = 0;
-		// If there aren't any bytes left in the file, return FALSE to indicate EOF
+		// If there aren't any bytes left in the file, return `false` to indicate EOF
 		if (m_current - m_base >= m_filesize)
 			return false;
 		// Loop through chars, watching for eol chars or zero
@@ -542,18 +538,8 @@ bool UniMemFile::ReadString(String & line, String & eol, bool * lossy)
 	// Handle 8-bit strings in line chunks because of multibyte codings (eg, 936)
 	if (m_unicoding == ucr::NONE)
 	{
-		// A true binary file could have arbitrary long line-chunks, well beyond the `int`
-		// range tolerated by `MultiByteToWideChar()` (which only tolerates INT_MAX/2 (2^30) 
-		// input chars, allowing for INT_MAX output chars).  So we'll impose an arbitrary line 
-		// chunk length of 2^16 input chars; but when we reach that preferred chunk length,
-		// we'll continue to allow additional '\0' and '\xFF' chars up to a maxmax chunk 
-		// length of 2^18.  These lengths were determined empirically, based on performance 
-		// using various 4.5GB binary files.
 		bool eof = true;
-		unsigned char *eolptr = 0;
-		size_t counter = 0;
-		const int prefLineChunk   = 0x0FFFF; // 2^16 =  65,535
-		const int maxmaxLineChunk = 0x3FFFF; // 2^18 = 262,143
+		unsigned char *eolptr = nullptr;
 		for (eolptr = m_current; (eolptr - m_base + (m_charsize - 1) < m_filesize); ++eolptr)
 		{
 			if (*eolptr == '\n' || *eolptr == '\r')
@@ -566,26 +552,6 @@ bool UniMemFile::ReadString(String & line, String & eol, bool * lossy)
 			{
 				size_t offset = (eolptr - m_base);
 				RecordZero(m_txtstats, offset);
-			}
-			++counter;
-			if (counter > prefLineChunk)
-			{
-				// preliminary cut-off: but, tolerate additional 00 and FF chars
-				if (*eolptr != '\x00' && *eolptr != '\xff')
-				{
-					eof = false;
-					break;
-				}
-				if (counter > maxmaxLineChunk)
-				{
-					// absolute cut-off
-					// just in case the very next char is actually an '\r' or '\n'
-					if (eolptr - m_base + (m_charsize - 1) < m_filesize &&
-						(eolptr[1] == '\r' || eolptr[1] == '\n'))
-						++eolptr;
-					eof = false;
-					break;
-				}
 			}
 		}
 		bool success = ucr::maketstring(line, (const char *)m_current, eolptr-m_current, m_codepage, lossy);
@@ -726,7 +692,7 @@ bool UniMemFile::ReadString(String & line, String & eol, bool * lossy)
  */
 bool UniMemFile::WriteString(const String & line)
 {
-	assert(0); // unimplemented -- currently cannot write to a UniMemFile!
+	assert(false); // unimplemented -- currently cannot write to a UniMemFile!
 	return false;
 }
 
@@ -735,7 +701,7 @@ bool UniMemFile::WriteString(const String & line)
 /////////////
 
 UniStdioFile::UniStdioFile()
-		: m_fp(0)
+		: m_fp(nullptr)
 		, m_data(0)
 		, m_ucrbuff(128)
 {
@@ -751,7 +717,7 @@ void UniStdioFile::Close()
 	if (IsOpen())
 	{
 		fclose(m_fp);
-		m_fp = 0;
+		m_fp = nullptr;
 	}
 	m_statusFetched = 0;
 	m_filesize = 0;
@@ -918,13 +884,13 @@ void UniStdioFile::SetBom(bool bom)
 
 bool UniStdioFile::ReadString(String & line, bool * lossy)
 {
-	assert(0); // unimplemented -- currently cannot read from a UniStdioFile!
+	assert(false); // unimplemented -- currently cannot read from a UniStdioFile!
 	return false;
 }
 
 bool UniStdioFile::ReadString(String & line, String & eol, bool * lossy)
 {
-	assert(0); // unimplemented -- currently cannot read from a UniStdioFile!
+	assert(false); // unimplemented -- currently cannot read from a UniStdioFile!
 	return false;
 }
 

@@ -81,9 +81,9 @@ protected:
 
 protected:
 	CMergeDoc* GetDocument();
-	void DrawRect(CDC* pDC, const CRect& r, COLORREF cr, BOOL bSelected = FALSE);
+	void DrawRect(CDC* pDC, const CRect& r, COLORREF cr, bool bSelected = false);
 	bool GotoLocation(const CPoint& point, bool bRealLine = true);
-	int GetLineFromYPos(int nYCoord, int bar, BOOL bRealLine = TRUE);
+	int GetLineFromYPos(int nYCoord, int bar, bool bRealLine = true);
 	int IsInsideBar(const CRect& rc, const POINT& pt);
 	void DrawVisibleAreaRect(CDC* pDC, int nTopLine = -1, int nBottomLine = -1);
 	void DrawConnectLines(CDC* pDC);
@@ -95,7 +95,6 @@ protected:
 	void DrawBackground(CDC* pDC);
 
 private:
-	CMergeEditView* m_view[3]; //*< Table for view pointers */
 	int m_displayMovedBlocks; //*< Setting for displaying moved blocks */
 	double m_pixInLines; //*< How many pixels is one line in bars */
 	double m_lineInPix; //*< How many lines is one pixel?
@@ -108,7 +107,7 @@ private:
 	std::unique_ptr<CBitmap> m_pSavedBackgroundBitmap; //*< Saved background */
 	bool m_bDrawn; //*< Is already drawn in location pane? */
 	std::vector<DiffBlock> m_diffBlocks; //*< List of pre-calculated diff blocks.
-	BOOL m_bRecalculateBlocks; //*< Recalculate diff blocks in next repaint.
+	bool m_bRecalculateBlocks; //*< Recalculate diff blocks in next repaint.
 	CSize m_currentSize; //*< Current size of the panel.
 
 	// Generated message map functions
@@ -117,17 +116,13 @@ protected:
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg int  OnMouseActivate(CWnd* pDesktopWnd, UINT nHitTest, UINT message);
 	afx_msg void OnLButtonDblClk(UINT nFlags, CPoint point);
 	afx_msg void OnContextMenu(CWnd* pWnd, CPoint point);
 	afx_msg void OnClose();
 	afx_msg void OnVScroll (UINT nSBCode, UINT nPos, CScrollBar * pScrollBar);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
-	afx_msg void OnSetFocus(CWnd* pOldWnd);
-	afx_msg void OnUpdateFileSave(CCmdUI* pCmdUI);
-	afx_msg void OnUpdateFileSaveLeft(CCmdUI* pCmdUI);
-	afx_msg void OnUpdateFileSaveMiddle(CCmdUI* pCmdUI);
-	afx_msg void OnUpdateFileSaveRight(CCmdUI* pCmdUI);
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };

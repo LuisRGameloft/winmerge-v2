@@ -74,8 +74,8 @@ enum
 // CHexMergeFrame construction/destruction
 
 CHexMergeFrame::CHexMergeFrame()
-: m_hIdentical(NULL)
-, m_hDifferent(NULL)
+: m_hIdentical(nullptr)
+, m_hDifferent(nullptr)
 {
 	std::fill_n(m_nLastSplitPos, 2, 0);
 	m_pMergeDoc = 0;
@@ -127,7 +127,7 @@ BOOL CHexMergeFrame::OnCreateClient( LPCREATESTRUCT /*lpcs*/,
 		}
 	}
 
-	m_wndSplitter.ResizablePanes(TRUE);
+	m_wndSplitter.ResizablePanes(true);
 	m_wndSplitter.AutoResizePanes(GetOptionsMgr()->GetBool(OPT_RESIZE_PANES));
 
 	// Merge frame has a header bar at top
@@ -138,6 +138,12 @@ BOOL CHexMergeFrame::OnCreateClient( LPCREATESTRUCT /*lpcs*/,
 	}
 
 	m_wndFilePathBar.SetPaneCount(m_pMergeDoc->m_nBuffers);
+	m_wndFilePathBar.SetOnSetFocusCallback([&](int pane) {
+		if (m_wndSplitter.GetColumnCount() > 1)
+			m_wndSplitter.SetActivePane(0, pane);
+		else
+			m_wndSplitter.SetActivePane(pane, 0);
+	});
 
 	// Set filename bars inactive so colors get initialized
 	for (nPane = 0; nPane < m_pMergeDoc->m_nBuffers; nPane++)
@@ -240,7 +246,7 @@ void CHexMergeFrame::OnMDIActivate(BOOL bActivate, CWnd* pActivateWnd, CWnd* pDe
 	CMDIChildWnd::OnMDIActivate(bActivate, pActivateWnd, pDeactivateWnd);
 
 	CHexMergeDoc *pDoc = GetMergeDoc();
-	if (bActivate && pDoc)
+	if (bActivate && pDoc != nullptr)
 		this->GetParentFrame()->PostMessage(WM_USER+1);
 	return;
 }
@@ -425,7 +431,8 @@ void CHexMergeFrame::OnIdleUpdateCmdUI()
 				pView[pane]->SendMessage(WM_VSCROLL, MAKEWPARAM(SB_THUMBTRACK, si.nTrackPos));
 			}
 		}
-		m_wndSplitter.GetScrollBarCtrl(pView[nColumns - 1], SB_VERT)->SetScrollInfo(&si);
+		if (nColumns > 0)
+			m_wndSplitter.GetScrollBarCtrl(pView[nColumns - 1], SB_VERT)->SetScrollInfo(&si);
 	}
 	CMDIChildWnd::OnIdleUpdateCmdUI();
 }

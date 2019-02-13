@@ -75,10 +75,10 @@ END_MESSAGE_MAP()
  * @brief Constructor.
  */
 CChildFrame::CChildFrame()
-: m_hIdentical(NULL)
-, m_hDifferent(NULL)
+: m_hIdentical(nullptr)
+, m_hDifferent(nullptr)
 {
-	m_bActivated = FALSE;
+	m_bActivated = false;
 	std::fill_n(m_nLastSplitPos, 2, 0);
 	m_pMergeDoc = 0;
 }
@@ -88,37 +88,13 @@ CChildFrame::CChildFrame()
  */
 CChildFrame::~CChildFrame()
 {
-	m_wndDetailBar.setSplitter(0);
 }
 
 BOOL CChildFrame::OnCreateClient( LPCREATESTRUCT /*lpcs*/,
 	CCreateContext* pContext)
 {
-	BOOL bSplitVert = !GetOptionsMgr()->GetBool(OPT_SPLIT_HORIZONTALLY);
-
-	CMergeDoc * pDoc = dynamic_cast<CMergeDoc *>(pContext->m_pCurrentDoc);
-
-	// create a splitter with 1 row, 2 columns
-	if (!m_wndSplitter.CreateStatic(this, SWAPPARAMS_IF(bSplitVert, 1, pDoc->m_nBuffers),
-		WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL) )
-	{
-		TRACE0("Failed to CreateStaticSplitter\n");
-		return FALSE;
-	}
-
-	int pane;
-	for (pane = 0; pane < pDoc->m_nBuffers; pane++)
-	{
-		if (!m_wndSplitter.CreateView(SWAPPARAMS_IF(bSplitVert, 0, pane),
-			RUNTIME_CLASS(CMergeEditView), CSize(-1, 200), pContext))
-		{
-			TRACE1("Failed to create pane%d\n", pane);
-			return FALSE;
-		}
-	}
-	
-	m_wndSplitter.ResizablePanes(TRUE);
-	m_wndSplitter.AutoResizePanes(GetOptionsMgr()->GetBool(OPT_RESIZE_PANES));
+	m_wndSplitter.HideBorders(true);
+	m_wndSplitter.Create(this, 2, 1, CSize(1, 1), pContext, WS_CHILD | WS_VISIBLE | 1/*SPLS_DYNAMIC_SPLIT*/);
 
 	// Merge frame has also a dockable bar at the very left
 	// This is not the client area, but we create it now because we want
@@ -130,9 +106,9 @@ BOOL CChildFrame::OnCreateClient( LPCREATESTRUCT /*lpcs*/,
 		return FALSE;
 	}
 
-	CWnd* pWnd = new CLocationView;
+	CLocationView *pLocationView = new CLocationView;
 	DWORD dwStyle = AFX_WS_DEFAULT_VIEW & ~WS_BORDER;
-	pWnd->Create(NULL, NULL, dwStyle, CRect(0,0,40,100), &m_wndLocationBar, 152, pContext);
+	pLocationView->Create(nullptr, nullptr, dwStyle, CRect(0,0,40,100), &m_wndLocationBar, 152, pContext);
 
 	// Merge frame has also a dockable bar at the very bottom
 	// This is not the client area, but we create it now because we want
@@ -144,56 +120,29 @@ BOOL CChildFrame::OnCreateClient( LPCREATESTRUCT /*lpcs*/,
 		return FALSE;
 	}
 
-	// create a splitter with 2 rows, 1 column
-	// this is not a vertical scrollable splitter (see MergeDiffDetailView.h)
-	if (!m_wndDetailSplitter.CreateStatic(&m_wndDetailBar, SWAPPARAMS_IF(bSplitVert, pDoc->m_nBuffers, 1),
-		WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL, AFX_IDW_PANE_FIRST+1) )
-	{
-		TRACE0("Failed to CreateStaticSplitter\n");
-		return FALSE;
-	}
-	for (pane = 0; pane < pDoc->m_nBuffers; pane++)
-	{
-		// add splitter pane - the default view in column (pane)
-		if (!m_wndDetailSplitter.CreateView(SWAPPARAMS_IF(bSplitVert, pane, 0),
-			RUNTIME_CLASS(CMergeEditView), CSize(-1, 200), pContext))
-		{
-			TRACE1("Failed to create pane %d\n", pane);
-			return FALSE;
-		}
-	}
-	m_wndDetailSplitter.LockBar(TRUE);
-	m_wndDetailSplitter.ResizablePanes(TRUE);
-	m_wndDetailBar.setSplitter(&m_wndDetailSplitter);
+	m_pwndDetailMergeEditSplitterView = new CMergeEditSplitterView();
+	m_pwndDetailMergeEditSplitterView->m_bDetailView = true;
+	m_pwndDetailMergeEditSplitterView->Create(nullptr, nullptr, dwStyle, CRect(0,0,1,1), &m_wndDetailBar, ID_VIEW_DETAIL_BAR+1, pContext);
 
-	// stash left & right pointers into the mergedoc
-	CMergeEditView * pView[3];
-	for (pane = 0; pane < pDoc->m_nBuffers; pane++)
-	{
-		pView[pane] = static_cast<CMergeEditView *>(m_wndSplitter.GetPane(SWAPPARAMS_IF(bSplitVert, 0, pane)));
-		// connect merge views up to display of status info
-		pView[pane]->SetStatusInterface(m_wndStatusBar.GetIMergeEditStatus(pane));
-		pView[pane]->m_nThisPane = pane;
-	}
 	// tell merge doc about these views
 	m_pMergeDoc = dynamic_cast<CMergeDoc *>(pContext->m_pCurrentDoc);
-	m_pMergeDoc->SetMergeViews(pView);
+	m_pMergeDoc->ForEachView([&](auto& pView) {
+		pView->SetStatusInterface(m_wndStatusBar.GetIMergeEditStatus(pView->m_nThisPane));
+	});
+	m_pMergeDoc->SetLocationView(pLocationView);
 
-	// stash left & right detail pointers into the mergedoc
-	CMergeEditView * pDetail[3];
-	for (pane = 0; pane < pDoc->m_nBuffers; pane++)
-	{
-		pDetail[pane] = static_cast<CMergeEditView *>(m_wndDetailSplitter.GetPane(SWAPPARAMS_IF(bSplitVert, pane, 0)));
-		pDetail[pane]->m_nThisPane = pane;
-	}
-	// tell merge doc about these views
-	m_pMergeDoc->SetMergeDetailViews(pDetail);
-
-	m_wndFilePathBar.SetPaneCount(pDoc->m_nBuffers);
-	m_wndStatusBar.SetPaneCount(pDoc->m_nBuffers);
+	m_wndFilePathBar.SetPaneCount(m_pMergeDoc->m_nBuffers);
+	m_wndFilePathBar.SetOnSetFocusCallback([&](int pane) {
+		auto& wndSplitter = GetMergeEditSplitterWnd(0);
+		if (wndSplitter.GetColumnCount() > 1)
+			wndSplitter.SetActivePane(0, pane);
+		else
+			wndSplitter.SetActivePane(pane, 0);
+	});
+	m_wndStatusBar.SetPaneCount(m_pMergeDoc->m_nBuffers);
 	
 	// Set frame window handles so we can post stage changes back
-	static_cast<CLocationView *>(pWnd)->SetFrameHwnd(GetSafeHwnd());
+	pLocationView->SetFrameHwnd(GetSafeHwnd());
 	m_wndLocationBar.SetFrameHwnd(GetSafeHwnd());
 	m_wndDetailBar.SetFrameHwnd(GetSafeHwnd());
 
@@ -283,105 +232,40 @@ int CChildFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
  * The bars are identified with their ID. This means the missing bar bug is triggered
  * when we run WinMerge after changing the ID of a bar. 
  */
-BOOL CChildFrame::EnsureValidDockState(CDockState& state) 
+bool CChildFrame::EnsureValidDockState(CDockState& state) 
 {
 	for (int i = (int) state.m_arrBarInfo.GetSize()-1 ; i >= 0; i--) 
 	{
-		BOOL barIsCorrect = TRUE;
+		bool barIsCorrect = true;
 		CControlBarInfo* pInfo = (CControlBarInfo*)state.m_arrBarInfo[i];
-		if (! pInfo) 
-			barIsCorrect = FALSE;
+		if (pInfo == nullptr) 
+			barIsCorrect = false;
 		else
 		{
 			if (! pInfo->m_bFloating) 
 			{
 				pInfo->m_pBar = GetControlBar(pInfo->m_nBarID);
-				if (!pInfo->m_pBar) 
-					barIsCorrect = FALSE; //toolbar id's probably changed	
+				if (pInfo->m_pBar == nullptr) 
+					barIsCorrect = false; //toolbar id's probably changed	
 			}
 		}
 
 		if (! barIsCorrect)
 			state.m_arrBarInfo.RemoveAt(i);
 	}
-	return TRUE;
-}
-
-static LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	switch (uMsg) {
-	case WM_NCPAINT:
-	case WM_PAINT:
-		return 0;
-	case WM_NCACTIVATE:
-		return 1;
-	case WM_SIZE:
-		if (wParam != SIZE_RESTORED)
-			return 0;
-	}
-	WNDPROC pfnOldWndProc = (WNDPROC)GetProp(hwnd, _T("OldWndProc"));
-	return CallWindowProc(pfnOldWndProc, hwnd, uMsg, wParam, lParam);
-}
-
-static BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam)
-{
-	if (lParam == FALSE)
-	{
-		if (IsWindowVisible(hwnd))
-			::SendMessage(hwnd, WM_SETREDRAW, (WPARAM)lParam, 0);
-		else
-			SetProp(hwnd, _T("Hidden"), (HANDLE)1);
-	}
-	else
-	{
-		BOOL bHidden = static_cast<BOOL>(reinterpret_cast<uintptr_t>(RemoveProp(hwnd, _T("Hidden"))));
-		if (!bHidden)
-			::SendMessage(hwnd, WM_SETREDRAW, (WPARAM)lParam, 0);
-	}
-	return TRUE;
-}
-
-/**
- * @brief Alternative LockWindowUpdate(hWnd) API.
- * See the comment near the code that calls this function.
- */
-static BOOL MyLockWindowUpdate(HWND hwnd)
-{
-	WNDPROC pfnOldWndProc;
-
-	EnumChildWindows(hwnd, EnumChildProc, FALSE);
-
-	pfnOldWndProc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)WndProc);
-	SetProp(hwnd, _T("OldWndProc"), (HANDLE)pfnOldWndProc);
-	return TRUE;
-}
-
-/**
- * @brief Alternative LockWindowUpdate(NULL) API.
- * See the comment near the code that calls this function.
- */
-static BOOL MyUnlockWindowUpdate(HWND hwnd)
-{
-	WNDPROC pfnOldWndProc = (WNDPROC)RemoveProp(hwnd, _T("OldWndProc"));
-	if (pfnOldWndProc)
-		SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)pfnOldWndProc);
-
-	EnumChildWindows(hwnd, EnumChildProc, TRUE);
-
-	return TRUE;
+	return true;
 }
 
 void CChildFrame::ActivateFrame(int nCmdShow) 
 {
-	BOOL bMaximized = FALSE;
-	CMDIChildWnd * oldActiveFrame = GetMDIFrame()->MDIGetActive(&bMaximized);
-
 	if (!m_bActivated) 
 	{
-		m_bActivated = TRUE;
+		m_bActivated = true;
 
 		// get the active child frame, and a flag whether it is maximized
-		if (oldActiveFrame == NULL)
+		BOOL bMaximized = FALSE;
+		CMDIChildWnd * oldActiveFrame = GetMDIFrame()->MDIGetActive(&bMaximized);
+		if (oldActiveFrame == nullptr)
 			// for the first frame, get the restored/maximized state from the registry
 			bMaximized = theApp.GetProfileInt(_T("Settings"), _T("ActiveFrameMax"), TRUE);
 		if (bMaximized)
@@ -389,6 +273,8 @@ void CChildFrame::ActivateFrame(int nCmdShow)
 		else
 			nCmdShow = SW_SHOWNORMAL;
 	}
+
+	CMDIChildWnd::ActivateFrame(nCmdShow);
 
 	// load docking positions and sizes
 	CDockState pDockState;
@@ -398,40 +284,6 @@ void CChildFrame::ActivateFrame(int nCmdShow)
 	// for the dimensions of the diff and location pane, use the CSizingControlBar loader
 	m_wndLocationBar.LoadState(_T("Settings"));
 	m_wndDetailBar.LoadState(_T("Settings"));
-
-	if (bMaximized)
-	{
-		// If ActivateFrame() is called without tricks, Resizing panes in MergeView window could be visible.
-		// Here, two tricks are used.
-		// [First trick]
-		// To complete resizing panes before displaying MergeView window, 
-		// it needs to send WM_SIZE message with SIZE_MAXIMIZED to MergeView window before calling ActivateFrame().
-		// [Second trick]
-		// But it causes side effect that DirView window becomes restored window from maximized window
-		// and the process could be visible.
-		// To avoid it, it needs to block the redrawing DirView window.
-		// I had tried to use LockWindowUpdate for this purpose. However, it had caused flickering desktop icons.
-		// So instead of using LockWindowUpdate(), 
-		// I wrote My[Lock/Unlock]WindowUpdate() function that uses subclassing window.
-		// 
-		if (oldActiveFrame)
-			MyLockWindowUpdate(oldActiveFrame->m_hWnd);
-		
-		RECT rc;
-		GetClientRect(&rc);
-		SendMessage(WM_SIZE, SIZE_MAXIMIZED, MAKELPARAM(rc.right, rc.bottom));
-
-		CMDIChildWnd::ActivateFrame(nCmdShow);
-
-		if (oldActiveFrame)
-			MyUnlockWindowUpdate(oldActiveFrame->m_hWnd);
-	}
-	else
-	{
-		RecalcLayout();
-
-		CMDIChildWnd::ActivateFrame(nCmdShow);
-	}
 }
 
 BOOL CChildFrame::DestroyWindow() 
@@ -458,14 +310,6 @@ BOOL CChildFrame::DestroyWindow()
  */
 void CChildFrame::SavePosition()
 {
-	CRect rc;
-	CWnd* pLeft = m_wndSplitter.GetPane(0,0);
-	if (pLeft != NULL)
-	{
-		pLeft->GetWindowRect(&rc);
-		theApp.WriteProfileInt(_T("Settings"), _T("WLeft"), rc.Width());
-	}
-
 	// save the bars layout
 	// save docking positions and sizes
 	CDockState m_pDockState;
@@ -475,9 +319,15 @@ void CChildFrame::SavePosition()
 	m_wndLocationBar.SaveState(_T("Settings"));
 	m_wndDetailBar.SaveState(_T("Settings"));
 
-	int iCol;
-	m_wndSplitter.GetActivePane(NULL, &iCol);
-	theApp.WriteProfileInt(_T("Settings"), _T("ActivePane"), iCol);
+	int iRow, iCol;
+	m_wndSplitter.GetActivePane(&iRow, nullptr);
+	if (iRow >= 0)
+	{
+		auto& splitterWnd = static_cast<CMergeEditSplitterView *>(m_wndSplitter.GetPane(iRow, 0))->m_wndSplitter;
+		splitterWnd.GetActivePane(&iRow, &iCol);
+		if (iRow >= 0 || iCol >= 0)
+			theApp.WriteProfileInt(_T("Settings"), _T("ActivePane"), max(iRow, iCol));
+	}
 }
 
 void CChildFrame::OnClose() 
@@ -499,19 +349,20 @@ void CChildFrame::UpdateHeaderSizes()
 		int w[3];
 		int pane;
 		CMergeDoc * pDoc = GetMergeDoc();
-		if (m_wndSplitter.GetColumnCount() > 1)
+		auto& wndSplitter = GetMergeEditSplitterWnd(0);
+		if (wndSplitter.GetColumnCount() > 1)
 		{
-			for (pane = 0; pane < m_wndSplitter.GetColumnCount(); pane++)
+			for (pane = 0; pane < wndSplitter.GetColumnCount(); pane++)
 			{
 				int wmin;
-				m_wndSplitter.GetColumnInfo(pane, w[pane], wmin);
+				wndSplitter.GetColumnInfo(pane, w[pane], wmin);
 				if (w[pane]<1) w[pane]=1; // Perry 2003-01-22 (I don't know why this happens)
 			}
 		}
 		else
 		{
 			CRect rect;
-			m_wndSplitter.GetWindowRect(&rect);
+			wndSplitter.GetWindowRect(&rect);
 			for (pane = 0; pane < pDoc->m_nBuffers; pane++)
 			{
 				w[pane] = rect.Width() /  pDoc->m_nBuffers;
@@ -565,13 +416,16 @@ void CChildFrame::SetLastCompareResult(int nResult)
 
 void CChildFrame::UpdateAutoPaneResize()
 {
-	m_wndSplitter.AutoResizePanes(GetOptionsMgr()->GetBool(OPT_RESIZE_PANES));
+	auto& wndSplitter = GetMergeEditSplitterWnd(0);
+	wndSplitter.AutoResizePanes(GetOptionsMgr()->GetBool(OPT_RESIZE_PANES));
 }
 
 void CChildFrame::UpdateSplitter()
 {
+	for (int iRow = 0; iRow < m_wndSplitter.GetRowCount(); ++iRow)
+		GetMergeEditSplitterWnd(iRow).RecalcLayout();
 	m_wndSplitter.RecalcLayout();
-	m_wndDetailBar.UpdateBarHeight(0);
+	m_pwndDetailMergeEditSplitterView->m_wndSplitter.RecalcLayout();
 }
 
 /**
@@ -613,7 +467,7 @@ void CChildFrame::OnMDIActivate(BOOL bActivate, CWnd* pActivateWnd, CWnd* pDeact
 	CMDIChildWnd::OnMDIActivate(bActivate, pActivateWnd, pDeactivateWnd);
 
 	CMergeDoc *pDoc = GetMergeDoc();
-	if (bActivate && pDoc)
+	if (bActivate && pDoc != nullptr)
 		this->GetParentFrame()->PostMessage(WM_USER+1);
 	return;
 }
@@ -623,11 +477,13 @@ void CChildFrame::OnMDIActivate(BOOL bActivate, CWnd* pActivateWnd, CWnd* pDeact
  */
 void CChildFrame::OnViewSplitVertically() 
 {
-	bool bSplitVertically = (m_wndSplitter.GetColumnCount() != 1);
+	auto& wndSplitter = GetMergeEditSplitterWnd(0);
+	bool bSplitVertically = (wndSplitter.GetColumnCount() != 1);
 	bSplitVertically = !bSplitVertically; // toggle
 	GetOptionsMgr()->SaveOption(OPT_SPLIT_HORIZONTALLY, !bSplitVertically);
-	m_wndSplitter.FlipSplit();
-	m_wndDetailSplitter.FlipSplit();
+	for (int iRow = 0; iRow < m_wndSplitter.GetRowCount(); ++iRow)
+		GetMergeEditSplitterWnd(iRow).FlipSplit();
+	m_pwndDetailMergeEditSplitterView->m_wndSplitter.FlipSplit();
 }
 
 /**
@@ -635,8 +491,9 @@ void CChildFrame::OnViewSplitVertically()
  */
 void CChildFrame::OnUpdateViewSplitVertically(CCmdUI* pCmdUI) 
 {
+	auto& wndSplitter = GetMergeEditSplitterWnd(0);
 	pCmdUI->Enable(TRUE);
-	pCmdUI->SetCheck((m_wndSplitter.GetColumnCount() != 1));
+	pCmdUI->SetCheck((wndSplitter.GetColumnCount() != 1));
 }
 
 /// Document commanding us to close
@@ -663,7 +520,7 @@ void CChildFrame::UpdateResources()
 LRESULT CChildFrame::OnStorePaneSizes(WPARAM wParam, LPARAM lParam)
 {
 	KillTimer(IDT_SAVEPOSITION);
-	SetTimer(IDT_SAVEPOSITION, 300, NULL);
+	SetTimer(IDT_SAVEPOSITION, 300, nullptr);
 	return 0;
 }
 

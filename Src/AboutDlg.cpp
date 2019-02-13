@@ -36,7 +36,7 @@
 class CAboutDlg::Impl : public CTrDialog
 {
 public:
-	Impl(CAboutDlg *p, CWnd* pParent = NULL);
+	Impl(CAboutDlg *p, CWnd* pParent = nullptr);
 
 // Dialog Data
 	//{{AFX_DATA(CAboutDlg::Impl)
@@ -76,7 +76,7 @@ BEGIN_MESSAGE_MAP(CAboutDlg::Impl, CTrDialog)
 	ON_NOTIFY(NM_CLICK, IDC_WWW, OnBnClickedWWW)
 END_MESSAGE_MAP()
 
-CAboutDlg::Impl::Impl(CAboutDlg *p, CWnd* pParent /*=NULL*/)
+CAboutDlg::Impl::Impl(CAboutDlg *p, CWnd* pParent /*= nullptr*/)
 	: CTrDialog(CAboutDlg::Impl::IDD)
 	, m_p(p)
 {
@@ -88,7 +88,6 @@ void CAboutDlg::Impl::DoDataExchange(CDataExchange* pDX)
 	//{{AFX_DATA_MAP(CAboutDlg::Impl)
 	DDX_Text(pDX, IDC_COMPANY, m_p->m_info.copyright);
 	DDX_Text(pDX, IDC_VERSION, m_p->m_info.version);
-	DDX_Text(pDX, IDC_PRIVATEBUILD, m_p->m_info.private_build);
 	//}}AFX_DATA_MAP
 }
 
@@ -103,7 +102,7 @@ BOOL CAboutDlg::Impl::OnInitDialog()
 
 	m_font.CreatePointFont(10 * 10, _T("Tahoma"));
 
-	SetDlgItemText(IDC_STATIC, m_p->m_info.developers);
+	SetDlgItemText(static_cast<unsigned>(IDC_STATIC), m_p->m_info.developers);
 	GetDlgItem(IDC_STATIC)->SetFont(&m_font);
 	GetDlgItem(IDC_VERSION)->SetFont(&m_font);
 
@@ -147,7 +146,7 @@ void CAboutDlg::Impl::OnBnClickedOpenContributors()
 void CAboutDlg::Impl::OnBnClickedWWW(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	PNMLINK pNMLink = (PNMLINK)pNMHDR;
-	ShellExecute(NULL, _T("open"), pNMLink->item.szUrl, NULL, NULL, SW_SHOWNORMAL);
+	ShellExecute(nullptr, _T("open"), pNMLink->item.szUrl, nullptr, nullptr, SW_SHOWNORMAL);
 }
 
 CAboutDlg::CAboutDlg() : m_pimpl(new CAboutDlg::Impl(this)) {}

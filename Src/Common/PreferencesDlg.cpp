@@ -35,7 +35,7 @@ static TCHAR OptionsHelpLocation[] = _T("::/htmlhelp/Configuration.html");
 const TCHAR PATHDELIM = '>';
 
 CPreferencesDlg::CPreferencesDlg(COptionsMgr *regOptions, SyntaxColors *colors,
-		UINT nMenuID, CWnd* pParent)   // standard constructor
+		UINT nMenuID /*= 0*/, CWnd* pParent /*= nullptr*/)   // standard constructor
 : CTrDialog(IDD_PREFERENCES, pParent)
 , m_pOptionsMgr(regOptions)
 , m_pageGeneral(regOptions)
@@ -50,7 +50,6 @@ CPreferencesDlg::CPreferencesDlg(COptionsMgr *regOptions, SyntaxColors *colors,
 , m_pageEditor(regOptions)
 , m_pageSystem(regOptions)
 , m_pageBackups(regOptions)
-, m_pageVss(regOptions)
 , m_pageShell(regOptions)
 , m_pageCompareFolder(regOptions)
 , m_pageCompareBinary(regOptions)
@@ -108,7 +107,6 @@ BOOL CPreferencesDlg::OnInitDialog()
 	AddPage(&m_pageArchive, IDS_OPTIONSPG_ARCHIVE);
 	AddPage(&m_pageSystem, IDS_OPTIONSPG_SYSTEM);
 	AddPage(&m_pageBackups, IDS_OPTIONSPG_BACKUPS);
-	AddPage(&m_pageVss, IDS_OPTIONSPG_VERSIONCONTROL);
 	AddPage(&m_pageCodepage, IDS_OPTIONSPG_CODEPAGE);
 	AddPage(&m_pageShell, IDS_OPTIONSPG_SHELL);
 
@@ -177,7 +175,7 @@ void CPreferencesDlg::AddPage(CPropertyPage* pPage, LPCTSTR szPath)
 			HTREEITEM htiParentParent = htiParent;
 			htiParent = m_tcPages.GetChildItem(htiParentParent);
 
-			while (htiParent)
+			while (htiParent != nullptr)
 			{
 				if (sParent.CompareNoCase(m_tcPages.GetItemText(htiParent)) == 0)
 					break;
@@ -185,7 +183,7 @@ void CPreferencesDlg::AddPage(CPropertyPage* pPage, LPCTSTR szPath)
 				htiParent = m_tcPages.GetNextItem(htiParent, TVGN_NEXT);
 			}
 
-			if (!htiParent)
+			if (htiParent == nullptr)
 				htiParent = m_tcPages.InsertItem(sParent, htiParentParent);
 
 			nFind = sPath.Find(PATHDELIM);
@@ -195,7 +193,7 @@ void CPreferencesDlg::AddPage(CPropertyPage* pPage, LPCTSTR szPath)
 		m_tcPages.EnsureVisible(hti);
 
 		// map both ways
-		m_tcPages.SetItemData(hti, static_cast<DWORD>(reinterpret_cast<uintptr_t>(pPage)));
+		m_tcPages.SetItemData(hti, static_cast<DWORD_PTR>(reinterpret_cast<uintptr_t>(pPage)));
 		m_mapPP2HTI[(void*)pPage] = (void*)hti;
 	}
 }
@@ -209,11 +207,11 @@ void CPreferencesDlg::OnSelchangedPages(NMHDR* pNMHDR, LRESULT* pResult)
 		htiSel = m_tcPages.GetChildItem(htiSel);
 
 	CPropertyPage* pPage = (CPropertyPage*)m_tcPages.GetItemData(htiSel);
-	ASSERT (pPage);
+	ASSERT (pPage != nullptr);
 
-	if (pPage)
+	if (pPage != nullptr)
 	{
-		m_pphost.SetActivePage(pPage, FALSE);
+		m_pphost.SetActivePage(pPage, false);
 
 		// update caption
 		String sCaption = strutils::format_string1(_("Options (%1)"), (LPCTSTR)GetItemPath(htiSel));
@@ -227,13 +225,13 @@ void CPreferencesDlg::OnSelchangedPages(NMHDR* pNMHDR, LRESULT* pResult)
 
 void CPreferencesDlg::SetActivePage(int nPage)
 {
-	m_pphost.SetActivePage(nPage, FALSE);
+	m_pphost.SetActivePage(nPage, false);
 
 	// synchronize tree
 	CPropertyPage* pPage = m_pphost.GetActivePage();
-	HTREEITEM hti = NULL;
+	HTREEITEM hti = nullptr;
 
-	if (m_mapPP2HTI.Lookup(pPage, (void*&)hti) && hti)
+	if (m_mapPP2HTI.Lookup(pPage, (void*&)hti) && hti != nullptr)
 		m_tcPages.SelectItem(hti);
 }
 
@@ -242,7 +240,7 @@ CString CPreferencesDlg::GetItemPath(HTREEITEM hti)
 	CString sPath = m_tcPages.GetItemText(hti);
 
 	hti = m_tcPages.GetParentItem(hti);
-	while (hti)
+	while (hti != nullptr)
 	{
 		sPath = m_tcPages.GetItemText(hti) + _T(" > ") + sPath;
 		hti = m_tcPages.GetParentItem(hti);
@@ -253,7 +251,7 @@ CString CPreferencesDlg::GetItemPath(HTREEITEM hti)
 
 /**
  * @brief Read options from storage to UI controls.
- * @param [in] bUpdate If TRUE UpdateData() is called
+ * @param [in] bUpdate If `true` UpdateData() is called
  */
 void CPreferencesDlg::ReadOptions(bool bUpdate)
 {
@@ -269,29 +267,27 @@ void CPreferencesDlg::ReadOptions(bool bUpdate)
 	m_pageCompareImage.ReadOptions();
 	m_pageEditor.ReadOptions();
 	m_pageCodepage.ReadOptions();
-	m_pageVss.ReadOptions();
 	m_pageArchive.ReadOptions();
 	m_pageBackups.ReadOptions();
 	m_pageShell.ReadOptions();
 
 	if (bUpdate)
 	{
-		SafeUpdatePage(&m_pageGeneral, FALSE);
-		SafeUpdatePage(&m_pageMergeColors, FALSE);
-		SafeUpdatePage(&m_pageTextColors, FALSE);
-		SafeUpdatePage(&m_pageSyntaxColors, FALSE);
-		SafeUpdatePage(&m_pageMarkerColors, FALSE);
-		SafeUpdatePage(&m_pageSystem, FALSE);
-		SafeUpdatePage(&m_pageCompare, FALSE);
-		SafeUpdatePage(&m_pageCompareFolder, FALSE);
-		SafeUpdatePage(&m_pageCompareBinary, FALSE);
-		SafeUpdatePage(&m_pageCompareImage, FALSE);
-		SafeUpdatePage(&m_pageEditor, FALSE);
-		SafeUpdatePage(&m_pageCodepage, FALSE);
-		SafeUpdatePage(&m_pageVss, FALSE);
-		SafeUpdatePage(&m_pageArchive, FALSE);
-		SafeUpdatePage(&m_pageBackups, FALSE);
-		SafeUpdatePage(&m_pageShell, FALSE);
+		SafeUpdatePage(&m_pageGeneral, false);
+		SafeUpdatePage(&m_pageMergeColors, false);
+		SafeUpdatePage(&m_pageTextColors, false);
+		SafeUpdatePage(&m_pageSyntaxColors, false);
+		SafeUpdatePage(&m_pageMarkerColors, false);
+		SafeUpdatePage(&m_pageSystem, false);
+		SafeUpdatePage(&m_pageCompare, false);
+		SafeUpdatePage(&m_pageCompareFolder, false);
+		SafeUpdatePage(&m_pageCompareBinary, false);
+		SafeUpdatePage(&m_pageCompareImage, false);
+		SafeUpdatePage(&m_pageEditor, false);
+		SafeUpdatePage(&m_pageCodepage, false);
+		SafeUpdatePage(&m_pageArchive, false);
+		SafeUpdatePage(&m_pageBackups, false);
+		SafeUpdatePage(&m_pageShell, false);
 	}
 }
 
@@ -312,7 +308,6 @@ void CPreferencesDlg::SaveOptions()
 	m_pageSyntaxColors.WriteOptions();
 	m_pageMarkerColors.WriteOptions();
 	m_pageCodepage.WriteOptions();
-	m_pageVss.WriteOptions();	
 	m_pageArchive.WriteOptions();
 	m_pageBackups.WriteOptions();
 	m_pageShell.WriteOptions();
@@ -329,12 +324,12 @@ void CPreferencesDlg::SetSyntaxColors(SyntaxColors *pColors)
 void CPreferencesDlg::OnImportButton()
 {
 	String s;
-	if (SelectFile(GetSafeHwnd(), s, NULL, _("Select file for import"), _("Options files (*.ini)|*.ini|All Files (*.*)|*.*||"), TRUE))
+	if (SelectFile(GetSafeHwnd(), s, true, nullptr, _("Select file for import"), _("Options files (*.ini)|*.ini|All Files (*.*)|*.*||")))
 	{
 		if (m_pOptionsMgr->ImportOptions(s) == COption::OPT_OK)
 		{
 			Options::SyntaxColors::Load(m_pOptionsMgr, m_pSyntaxColors);
-			ReadOptions(TRUE);
+			ReadOptions(true);
 			LangMessageBox(IDS_OPT_IMPORT_DONE, MB_ICONINFORMATION);
 		}
 		else
@@ -348,8 +343,8 @@ void CPreferencesDlg::OnImportButton()
 void CPreferencesDlg::OnExportButton()
 {
 	String settingsFile;
-	if (SelectFile(GetSafeHwnd(), settingsFile, NULL, _("Select file for export"), _("Options files (*.ini)|*.ini|All Files (*.*)|*.*||"),
-		FALSE))
+	if (SelectFile(GetSafeHwnd(), settingsFile, false, nullptr, _("Select file for export"),
+		_("Options files (*.ini)|*.ini|All Files (*.*)|*.*||")))
 	{
 		// Add settings file extension if it is missing
 		// So we allow 'filename.otherext' but add extension for 'filename'
@@ -377,6 +372,6 @@ void CPreferencesDlg::OnExportButton()
  */
 void CPreferencesDlg::SafeUpdatePage(CPropertyPage* pPage, bool bSaveAndValidate)
 {
-	if (pPage->GetSafeHwnd() != NULL)
+	if (pPage->GetSafeHwnd() != nullptr)
 		pPage->UpdateData(bSaveAndValidate);
 }

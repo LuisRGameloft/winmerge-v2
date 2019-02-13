@@ -29,6 +29,8 @@
 #include "cfindtextdlg.h"
 #include "ccrystaltextview.h"
 
+#include "DDXHelper.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -37,15 +39,17 @@
 // CFindTextDlg dialog
 
 CFindTextDlg::CFindTextDlg (CCrystalTextView * pBuddy)
-: CDialog (CFindTextDlg::IDD, NULL)
+: CDialog (CFindTextDlg::IDD, nullptr)
 , m_pBuddy(pBuddy)
 , m_nDirection(1)
 , m_bMatchCase(false)
 , m_bWholeWord(false)
 , m_bRegExp(false)
 , m_bNoWrap(false)
+, m_bNoClose(false)
+, lastSearch({0})
 {
-  ASSERT (pBuddy != NULL);
+  ASSERT (pBuddy != nullptr);
   Create(CFindTextDlg::IDD,pBuddy);
 }
 
@@ -94,7 +98,7 @@ FindText (int nDirection)
       m_nDirection = nDirection;
       UpdateLastSearch ();
 
-      ASSERT (m_pBuddy != NULL);
+      ASSERT (m_pBuddy != nullptr);
 
       if (!m_pBuddy->FindText(GetLastSearchInfos()))
         {
@@ -216,15 +220,15 @@ SetLastSearch (LPCTSTR sText, bool bMatchCase, bool bWholeWord, bool bRegExp, in
   lastSearch.m_bRegExp = bRegExp;
   lastSearch.m_nDirection = nDirection;
   lastSearch.m_sText = sText;
-  lastSearch.m_bNoWrap = !!m_bNoWrap;
-  lastSearch.m_bNoClose = !!m_bNoClose;
+  lastSearch.m_bNoWrap = m_bNoWrap;
+  lastSearch.m_bNoClose = m_bNoClose;
 }
 
 
 void CFindTextDlg::
 UpdateLastSearch ()
 {
-  SetLastSearch (m_sText, !!m_bMatchCase, !!m_bWholeWord, !!m_bRegExp, m_nDirection);
+  SetLastSearch (m_sText, m_bMatchCase, m_bWholeWord, m_bRegExp, m_nDirection);
 }
 
 void CFindTextDlg::

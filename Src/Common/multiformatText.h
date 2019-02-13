@@ -26,7 +26,7 @@ class storageForPlugins
 {
 public:
 	storageForPlugins()
-	: m_bstr(NULL)
+	: m_bstr(nullptr)
 	, m_bOriginalIsUnicode(false)
 	, m_bCurrentIsUnicode(false)
 	, m_bCurrentIsFile(false)
@@ -44,7 +44,7 @@ public:
 	{
 		if (!m_tempFilenameDst.empty()) // "!m_tempFilenameDst" means "never"
 			::DeleteFile(m_tempFilenameDst.c_str());
-		if (m_bstr)
+		if (m_bstr != nullptr)
 			SysFreeString(m_bstr);
 		VariantClear(&m_array);
 	}
@@ -80,7 +80,7 @@ public:
 			newFilename = GetDataFileUnicode();
 		else
 			newFilename = GetDataFileAnsi();
-		if (newFilename == NULL)
+		if (newFilename == nullptr)
 		{
 			GetLastValidFile(filename);
 			return false;
@@ -103,7 +103,7 @@ public:
 	/// return number of valid transformation until now
 	int & GetNChangedValid() { return m_nChangedValid; }
 	/// return format of original data
-	int GetOriginalMode() const { return m_bOriginalIsUnicode; }
+	bool GetOriginalMode() const { return m_bOriginalIsUnicode; }
 
 private:
 	void Initialize();
@@ -112,7 +112,7 @@ private:
 // Implementation data
 private:
 	// original data mode ANSI/UNICODE
-	int m_bOriginalIsUnicode;
+	bool m_bOriginalIsUnicode;
 
 	// current format of data : BUFFER/FILE, ANSI/UNICODE
 	bool m_bCurrentIsUnicode;

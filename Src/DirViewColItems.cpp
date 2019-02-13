@@ -5,8 +5,9 @@
  *
  * @date  Created: 2003-08-19
  */
+
+#include "stdafx.h"
 #include "DirViewColItems.h"
-#include <cstdint>
 #include <Poco/Timestamp.h>
 #include <Shlwapi.h>
 #include "UnicodeString.h"
@@ -15,6 +16,10 @@
 #include "locality.h"
 #include "paths.h"
 #include "MergeApp.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
 
 using Poco::Timestamp;
 
@@ -125,7 +130,7 @@ static int sign64(int64_t val)
  * @brief Function to compare two diffcodes for a sort
  * @todo How shall we order diff statuses?
  */
-static unsigned cmpdiffcode(unsigned diffcode1, unsigned diffcode2)
+static int cmpdiffcode(unsigned diffcode1, unsigned diffcode2)
 {
 	// Lower priority of the same items (FIXME:)
 	if (((diffcode1 & DIFFCODE::COMPAREFLAGS) == DIFFCODE::SAME) && ((diffcode2 & DIFFCODE::COMPAREFLAGS) != DIFFCODE::SAME))
@@ -167,7 +172,7 @@ static String MakeShortSize(int64_t size)
 	if (size < 1024)
 		return strutils::format(_T("%d B"), static_cast<int>(size));
 	else
-		StrFormatByteSize64(size, buffer, _countof(buffer));
+		StrFormatByteSize64(size, buffer, countof(buffer));
 	return buffer;
 }
 
@@ -233,22 +238,22 @@ static String ColPathGet(const CDiffContext *, const void *p)
 			return s;
 	}
 
-	int i = 0, j = 0;
+	size_t i = 0, j = 0;
 	do
 	{
 		const TCHAR *pi = _tcschr(s.c_str() + i, '\\');
 		const TCHAR *pj = _tcschr(t.c_str() + j, '\\');
-		int i_ahead = static_cast<int>(pi ? pi - s.c_str() : std::string::npos);
-		int j_ahead = static_cast<int>(pj ? pj - t.c_str() : std::string::npos);
-		int length_s = static_cast<int>((i_ahead != std::string::npos ? i_ahead : s.length()) - i);
-		int length_t = static_cast<int>((j_ahead != std::string::npos ? j_ahead : t.length()) - j);
+		size_t i_ahead = (pi != nullptr ? pi - s.c_str() : std::string::npos);
+		size_t j_ahead = (pj != nullptr ? pj - t.c_str() : std::string::npos);
+		size_t length_s = ((i_ahead != std::string::npos ? i_ahead : s.length()) - i);
+		size_t length_t = ((j_ahead != std::string::npos ? j_ahead : t.length()) - j);
 		if (length_s != length_t ||
 			memcmp(s.c_str() + i, t.c_str() + j, length_s) != 0)
 		{
 			String u(t.c_str() + j, length_t + 1);
 			u[length_t] = '|';
 			s.insert(i, u);
-			i_ahead += static_cast<int>(u.length());
+			i_ahead += u.length();
 		}
 		i = i_ahead + 1;
 		j = j_ahead + 1;
@@ -491,9 +496,9 @@ static String ColNewerGet(const CDiffContext *pCtxt, const void *p)
  * @param [in] bLeft Is the item left-size item?
  * @return String proper to show in the GUI.
  */
-static String GetVersion(const CDiffContext * pCtxt, const DIFFITEM * pdi, int nIndex)
+static String GetVersion(const CDiffContext * pCtxt, const DIFFITEM *pdi, int nIndex)
 {
-	DIFFITEM & di = const_cast<DIFFITEM &>(*pdi);
+	DIFFITEM &di = const_cast<DIFFITEM &>(*pdi);
 	DiffFileInfo & dfi = di.diffFileInfo[nIndex];
 	if (dfi.version.IsCleared())
 	{
@@ -502,9 +507,9 @@ static String GetVersion(const CDiffContext * pCtxt, const DIFFITEM * pdi, int n
 	return dfi.version.GetFileVersionString();
 }
 
-static uint64_t GetVersionQWORD(const CDiffContext * pCtxt, const DIFFITEM * pdi, int nIndex)
+static uint64_t GetVersionQWORD(const CDiffContext * pCtxt, const DIFFITEM *pdi, int nIndex)
 {
-	DIFFITEM & di = const_cast<DIFFITEM &>(*pdi);
+	DIFFITEM &di = const_cast<DIFFITEM &>(*pdi);
 	DiffFileInfo & dfi = di.diffFileInfo[nIndex];
 	if (dfi.version.IsCleared())
 	{
@@ -948,7 +953,7 @@ static int ColEncodingSort(const CDiffContext *, const void *p, const void *q)
 /* @} */
 
 #undef FIELD_OFFSET	// incorrect for Win32 as defined in WinNT.h
-#define FIELD_OFFSET(type, field)    ((size_t)(LONG_PTR)&(((type *)0)->field))
+#define FIELD_OFFSET(type, field)    ((size_t)(LONG_PTR)&(((type *)nullptr)->field))
 
 /**
  * @brief All existing folder compare columns.
@@ -960,9 +965,9 @@ static int ColEncodingSort(const CDiffContext *, const void *p, const void *q)
  *  - description resource ID: columns description text
  *  - custom function for getting column data
  *  - custom function for sorting column data
- *  - parameter for custom functions: DIFFITEM (if NULL) or one of its fields
+ *  - parameter for custom functions: DIFFITEM (if `nullptr`) or one of its fields
  *  - default column order number, -1 if not shown by default
- *  - ascending (TRUE) or descending (FALSE) default sort order
+ *  - ascending (`true`) or descending (`false`) default sort order
  *  - alignment of column contents: numbers are usually right-aligned
  */
 static DirColInfo f_cols[] =
@@ -1082,8 +1087,8 @@ DirViewColItems::GetDirColInfo(int col) const
 	{
 		if (col < 0 || col >= countof(f_cols))
 		{
-			assert(0); // fix caller, should not ask for nonexistent columns
-			return 0;
+			assert(false); // fix caller, should not ask for nonexistent columns
+			return nullptr;
 		}
 		return &f_cols[col];
 	}
@@ -1091,8 +1096,8 @@ DirViewColItems::GetDirColInfo(int col) const
 	{
 		if (col < 0 || col >= countof(f_cols3))
 		{
-			assert(0); // fix caller, should not ask for nonexistent columns
-			return 0;
+			assert(false); // fix caller, should not ask for nonexistent columns
+			return nullptr;
 		}
 		return &f_cols3[col];
 	}
@@ -1109,7 +1114,7 @@ DirViewColItems::IsColById(int col, const char *idname) const
 	{
 		if (col < 0 || col >= countof(f_cols))
 		{
-			assert(0); // fix caller, should not ask for nonexistent columns
+			assert(false); // fix caller, should not ask for nonexistent columns
 			return false;
 		}
 		return f_cols[col].idName == idname;
@@ -1118,7 +1123,7 @@ DirViewColItems::IsColById(int col, const char *idname) const
 	{
 		if (col < 0 || col >= sizeof(f_cols3)/sizeof(f_cols3[0]))
 		{
-			assert(0); // fix caller, should not ask for nonexistent columns
+			assert(false); // fix caller, should not ask for nonexistent columns
 			return false;
 		}
 		return f_cols3[col].idName == idname;
@@ -1181,10 +1186,10 @@ bool
 DirViewColItems::IsDefaultSortAscending(int col) const
 {
 	const DirColInfo * pColInfo = GetDirColInfo(col);
-	if (!pColInfo)
+	if (pColInfo == nullptr)
 	{
-		assert(0); // fix caller, should not ask for nonexistent columns
-		return 0;
+		assert(false); // fix caller, should not ask for nonexistent columns
+		return false;
 	}
 	return pColInfo->defSortUp;
 }
@@ -1232,13 +1237,13 @@ DirViewColItems::GetColCount() const
  */
 String
 DirViewColItems::ColGetTextToDisplay(const CDiffContext *pCtxt, int col,
-		const DIFFITEM & di) const
+		const DIFFITEM &di) const
 {
 	// Custom properties have custom get functions
 	const DirColInfo * pColInfo = GetDirColInfo(col);
-	if (!pColInfo)
+	if (pColInfo == nullptr)
 	{
-		assert(0); // fix caller, should not ask for nonexistent columns
+		assert(false); // fix caller, should not ask for nonexistent columns
 		return _T("???");
 	}
 	ColGetFncPtrType fnc = pColInfo->getfnc;
@@ -1310,14 +1315,14 @@ DirViewColItems::ColGetTextToDisplay(const CDiffContext *pCtxt, int col,
  * @return Order of items.
  */
 int
-DirViewColItems::ColSort(const CDiffContext *pCtxt, int col, const DIFFITEM & ldi,
-		const DIFFITEM & rdi, bool bTreeMode) const
+DirViewColItems::ColSort(const CDiffContext *pCtxt, int col, const DIFFITEM &ldi,
+		const DIFFITEM &rdi, bool bTreeMode) const
 {
 	// Custom properties have custom sort functions
 	const DirColInfo * pColInfo = GetDirColInfo(col);
-	if (!pColInfo)
+	if (pColInfo == nullptr)
 	{
-		assert(0); // fix caller, should not ask for nonexistent columns
+		assert(false); // fix caller, should not ask for nonexistent columns
 		return 0;
 	}
 	size_t offset = pColInfo->offset;
@@ -1331,17 +1336,17 @@ DirViewColItems::ColSort(const CDiffContext *pCtxt, int col, const DIFFITEM & ld
 		if (lLevel < rLevel)
 		{
 			for (; lLevel != rLevel; rLevel--)
-				rcur = rcur->parent;
+				rcur = rcur->GetParentLink();
 		}
 		else if (rLevel < lLevel)
 		{
 			for (; lLevel != rLevel; lLevel--)
-				lcur = lcur->parent;
+				lcur = lcur->GetParentLink();
 		}
-		while (lcur->parent != rcur->parent)
+		while (lcur->GetParentLink() != rcur->GetParentLink())
 		{
-			lcur = lcur->parent;
-			rcur = rcur->parent;
+			lcur = lcur->GetParentLink();
+			rcur = rcur->GetParentLink();
 		}
 		arg1 = reinterpret_cast<const char *>(lcur) + offset;
 		arg2 = reinterpret_cast<const char *>(rcur) + offset;
@@ -1500,7 +1505,7 @@ void DirViewColItems::LoadColumnOrders(String colorders)
 /// store current column orders into registry
 String DirViewColItems::SaveColumnOrders()
 {
-	assert(m_colorder.size() == m_numcols);
-	assert(m_invcolorder.size() == m_numcols);
+	assert(static_cast<int>(m_colorder.size()) == m_numcols);
+	assert(static_cast<int>(m_invcolorder.size()) == m_numcols);
 	return strutils::join<String (*)(int)>(m_colorder.begin(), m_colorder.end(), _T(" "), strutils::to_str);
 }

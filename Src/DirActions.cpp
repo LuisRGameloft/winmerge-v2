@@ -13,6 +13,7 @@
 // One idea would be to provide an iterator over them.
 //
 
+#include "stdafx.h"
 #include "DirActions.h"
 #include "MergeApp.h"
 #include "UnicodeString.h"
@@ -22,6 +23,10 @@
 #include "FileActionScript.h"
 #include "locality.h"
 #include "FileFilterHelper.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
 
 static void ThrowConfirmCopy(const CDiffContext& ctxt, int origin, int destination, int count,
 		const String& src, const String& dest, bool destIsSide);
@@ -272,9 +277,9 @@ UPDATEITEM_TYPE UpdateDiffAfterOperation(const FileActionItem & act, CDiffContex
 	}
 
 	if (bUpdateSrc)
-		ctxt.UpdateStatusFromDisk(reinterpret_cast<uintptr_t>(&di), act.UIOrigin);
+		ctxt.UpdateStatusFromDisk(&di, act.UIOrigin);
 	if (bUpdateDest)
-		ctxt.UpdateStatusFromDisk(reinterpret_cast<uintptr_t>(&di), act.UIDestination);
+		ctxt.UpdateStatusFromDisk(&di, act.UIDestination);
 
 	if (bRemoveItem)
 		return UPDATEITEM_REMOVE;
@@ -285,57 +290,70 @@ UPDATEITEM_TYPE UpdateDiffAfterOperation(const FileActionItem & act, CDiffContex
 
 /**
  * @brief Find the CDiffContext diffpos of an item from its left & right paths
- * @return POSITION to item, NULL if not found.
- * @note Filenames must be same, if they differ NULL is returned.
+ * @return POSITION to item, `nullptr` if not found.
+ * @note Filenames must be same, if they differ `nullptr` is returned.
  */
-uintptr_t FindItemFromPaths(const CDiffContext& ctxt, const String& pathLeft, const String& pathRight)
+DIFFITEM *FindItemFromPaths(const CDiffContext& ctxt, const PathContext& paths)
 {
-	String file1 = paths::FindFileName(pathLeft);
-	String file2 = paths::FindFileName(pathRight);
+	int nBuffer;
+	String file[3], path[3], base;
+	for (nBuffer = 0; nBuffer < static_cast<int>(paths.size()); ++nBuffer)
+	{
+		String p = paths[nBuffer];
+		file[nBuffer] = paths::FindFileName(p);
+		if (file[nBuffer].empty())
+			return 0;
+		// Path can contain (because of difftools?) '/' and '\'
+		// so for comparing purposes, convert whole path to use '\\'
+		path[nBuffer] = paths::ToWindowsPath(String(p, 0, p.length() - file[nBuffer].length())); // include trailing backslash
+		base = ctxt.GetPath(nBuffer); // include trailing backslash
+		if (path[nBuffer].compare(0, base.length(), base.c_str()) != 0)
+			return 0;
+		path[nBuffer].erase(0, base.length()); // turn into relative path
+		if (String::size_type length = path[nBuffer].length())
+			path[nBuffer].resize(length - 1); // remove trailing backslash
+	}
 
 	// Filenames must be identical
-	if (strutils::compare_nocase(file1, file2) != 0)
-		return NULL;
+	if (static_cast<size_t>(std::count(file, file + paths.size(), file[0])) < paths.size())
+		return 0;
 
-	String path1(pathLeft, 0, pathLeft.length() - file1.length()); // include trailing backslash
-	String path2(pathRight, 0, pathRight.length() - file2.length()); // include trailing backslash
-
-	// Path can contain (because of difftools?) '/' and '\'
-	// so for comparing purposes, convert whole path to use '\\'
-	path1 = paths::ToWindowsPath(path1);
-	path2 = paths::ToWindowsPath(path2);
-
-	String base1 = ctxt.GetLeftPath(); // include trailing backslash
-	if (path1.compare(0, base1.length(), base1.c_str()) != 0)
-		return NULL;
-	path1.erase(0, base1.length()); // turn into relative path
-	if (String::size_type length = path1.length())
-		path1.resize(length - 1); // remove trailing backslash
-
-	String base2 = ctxt.GetRightPath(); // include trailing backslash
-	if (path2.compare(0, base2.length(), base2.c_str()) != 0)
-		return NULL;
-	path2.erase(0, base2.length()); // turn into relative path
-	if (String::size_type length = path2.length())
-		path2.resize(length - 1); // remove trailing backslash
-
-	uintptr_t pos = ctxt.GetFirstDiffPosition();
-	while (uintptr_t currentPos = pos) // Save our current pos before getting next
+	DIFFITEM *pos = ctxt.GetFirstDiffPosition();
+	if (paths.size() == 2)
 	{
-		const DIFFITEM &di = ctxt.GetNextDiffPosition(pos);
-		if (di.diffFileInfo[0].path == path1 &&
-			di.diffFileInfo[1].path == path2 &&
-			di.diffFileInfo[0].filename == file1 &&
-			di.diffFileInfo[1].filename == file2)
+		while (DIFFITEM *currentPos = pos) // Save our current pos before getting next
 		{
-			return currentPos;
+			const DIFFITEM &di = ctxt.GetNextDiffPosition(pos);
+			if (di.diffFileInfo[0].path == path[0] &&
+				di.diffFileInfo[1].path == path[1] &&
+				di.diffFileInfo[0].filename == file[0] &&
+				di.diffFileInfo[1].filename == file[1])
+			{
+				return currentPos;
+			}
+		}
+	}
+	else
+	{
+		while (DIFFITEM *currentPos = pos) // Save our current pos before getting next
+		{
+			const DIFFITEM &di = ctxt.GetNextDiffPosition(pos);
+			if (di.diffFileInfo[0].path == path[0] &&
+				di.diffFileInfo[1].path == path[1] &&
+				di.diffFileInfo[2].path == path[2] &&
+				di.diffFileInfo[0].filename == file[0] &&
+				di.diffFileInfo[1].filename == file[1] &&
+				di.diffFileInfo[2].filename == file[2])
+			{
+				return currentPos;
+			}
 		}
 	}
 	return 0;
 }
 
 /// is it possible to copy item to left ?
-bool IsItemCopyable(const DIFFITEM & di, int index)
+bool IsItemCopyable(const DIFFITEM &di, int index)
 {
 	// don't let them mess with error items
 	if (di.diffcode.isResultError()) return false;
@@ -348,7 +366,7 @@ bool IsItemCopyable(const DIFFITEM & di, int index)
 }
 
 /// is it possible to delete item ?
-bool IsItemDeletable(const DIFFITEM & di, int index)
+bool IsItemDeletable(const DIFFITEM &di, int index)
 {
 	// don't let them mess with error items
 	if (di.diffcode.isResultError()) return false;
@@ -359,7 +377,7 @@ bool IsItemDeletable(const DIFFITEM & di, int index)
 }
 
 /// is it possible to delete both items ?
-bool IsItemDeletableOnBoth(const CDiffContext& ctxt, const DIFFITEM & di)
+bool IsItemDeletableOnBoth(const CDiffContext& ctxt, const DIFFITEM &di)
 {
 	// don't let them mess with error items
 	if (di.diffcode.isResultError()) return false;
@@ -372,7 +390,7 @@ bool IsItemDeletableOnBoth(const CDiffContext& ctxt, const DIFFITEM & di)
 }
 
 /// is it possible to compare these two items?
-bool AreItemsOpenable(const CDiffContext& ctxt, SELECTIONTYPE selectionType, const DIFFITEM & di1, const DIFFITEM & di2)
+bool AreItemsOpenable(const CDiffContext& ctxt, SELECTIONTYPE selectionType, const DIFFITEM &di1, const DIFFITEM &di2)
 {
 	String sLeftBasePath = ctxt.GetPath(0);
 	String sRightBasePath = ctxt.GetPath(1);
@@ -421,7 +439,7 @@ bool AreItemsOpenable(const CDiffContext& ctxt, SELECTIONTYPE selectionType, con
 	return false;
 }
 /// is it possible to compare these three items?
-bool AreItemsOpenable(const CDiffContext& ctxt, const DIFFITEM & di1, const DIFFITEM & di2, const DIFFITEM & di3)
+bool AreItemsOpenable(const CDiffContext& ctxt, const DIFFITEM &di1, const DIFFITEM &di2, const DIFFITEM &di3)
 {
 	String sLeftBasePath = ctxt.GetPath(0);
 	String sMiddleBasePath = ctxt.GetPath(1);
@@ -479,7 +497,7 @@ bool AreItemsOpenable(const CDiffContext& ctxt, const DIFFITEM & di1, const DIFF
 	return false;
 }
 /// is it possible to open item ?
-bool IsItemOpenableOn(const DIFFITEM & di, int index)
+bool IsItemOpenableOn(const DIFFITEM &di, int index)
 {
 	// impossible if not existing
 	if (!di.diffcode.exists(index)) return false;
@@ -489,12 +507,12 @@ bool IsItemOpenableOn(const DIFFITEM & di, int index)
 }
 
 /// is it possible to open left ... item ?
-bool IsItemOpenableOnWith(const DIFFITEM & di, int index)
+bool IsItemOpenableOnWith(const DIFFITEM &di, int index)
 {
 	return (!di.diffcode.isDirectory() && IsItemOpenableOn(di, index));
 }
 /// is it possible to copy to... left item?
-bool IsItemCopyableToOn(const DIFFITEM & di, int index)
+bool IsItemCopyableToOn(const DIFFITEM &di, int index)
 {
 	// impossible if only on right
 	if (!di.diffcode.exists(index)) return false;
@@ -504,7 +522,7 @@ bool IsItemCopyableToOn(const DIFFITEM & di, int index)
 }
 
 // When navigating differences, do we stop at this one ?
-bool IsItemNavigableDiff(const CDiffContext& ctxt, const DIFFITEM & di)
+bool IsItemNavigableDiff(const CDiffContext& ctxt, const DIFFITEM &di)
 {
 	// Not a valid diffitem, one of special items (e.g "..")
 	if (di.diffcode.diffcode == 0)
@@ -516,7 +534,7 @@ bool IsItemNavigableDiff(const CDiffContext& ctxt, const DIFFITEM & di)
 	return true;
 }
 
-bool IsItemExistAll(const CDiffContext& ctxt, const DIFFITEM & di)
+bool IsItemExistAll(const CDiffContext& ctxt, const DIFFITEM &di)
 {
 	// Not a valid diffitem, one of special items (e.g "..")
 	if (di.diffcode.diffcode == 0)
@@ -537,9 +555,9 @@ bool IsItemExistAll(const CDiffContext& ctxt, const DIFFITEM & di)
  * @return true if item should be shown, false if not.
  * @sa CDirDoc::Redisplay()
  */
-bool IsShowable(const CDiffContext& ctxt, const DIFFITEM & di, const DirViewFilterSettings& filter)
+bool IsShowable(const CDiffContext& ctxt, const DIFFITEM &di, const DirViewFilterSettings& filter)
 {
-	if (di.customFlags1 & ViewCustomFlags::HIDDEN)
+	if (di.customFlags & ViewCustomFlags::HIDDEN)
 		return false;
 
 	if (di.diffcode.isResultFiltered())
@@ -571,7 +589,7 @@ bool IsShowable(const CDiffContext& ctxt, const DIFFITEM & di, const DirViewFilt
 			}
 
 			// result filters
-			if (di.diffcode.isResultError() && FALSE/* !GetMainFrame()->m_bShowErrors FIXME:*/)
+			if (di.diffcode.isResultError() && false/* !GetMainFrame()->m_bShowErrors FIXME:*/)
 				return false;
 		}
 		else // recursive mode (including tree-mode)
@@ -600,7 +618,7 @@ bool IsShowable(const CDiffContext& ctxt, const DIFFITEM & di, const DirViewFilt
 			if (filter.tree_mode)
 			{
 				// result filters
-				if (di.diffcode.isResultError() && FALSE/* !GetMainFrame()->m_bShowErrors FIXME:*/)
+				if (di.diffcode.isResultError() && false/* !GetMainFrame()->m_bShowErrors FIXME:*/)
 					return false;
 
 				// result filters
@@ -608,8 +626,8 @@ bool IsShowable(const CDiffContext& ctxt, const DIFFITEM & di, const DirViewFilt
 					return false;
 				if (di.diffcode.isResultDiff() && !filter.show_different)
 				{
-					uintptr_t diffpos = ctxt.GetFirstChildDiffPosition(reinterpret_cast<uintptr_t>(&di));
-					while (diffpos)
+					DIFFITEM *diffpos = ctxt.GetFirstChildDiffPosition(&di);
+					while (diffpos != nullptr)
 					{
 						const DIFFITEM &dic = ctxt.GetNextSiblingDiffPosition(diffpos);
 						if (IsShowable(ctxt, dic, filter))
@@ -663,7 +681,7 @@ bool IsShowable(const CDiffContext& ctxt, const DIFFITEM & di, const DirViewFilt
  * @param [in,out] isDir Is item folder?
  * return false if there was error or item was completely processed.
  */
-bool GetOpenOneItem(const CDiffContext& ctxt, uintptr_t pos1, const DIFFITEM *pdi[3],
+bool GetOpenOneItem(const CDiffContext& ctxt, DIFFITEM *pos1, const DIFFITEM *pdi[3],
 		PathContext & paths, int & sel1, bool & isdir, int nPane[3], String& errmsg)
 {
 	pdi[0] = &ctxt.GetDiffAt(pos1);
@@ -710,7 +728,7 @@ bool GetOpenOneItem(const CDiffContext& ctxt, uintptr_t pos1, const DIFFITEM *pd
  * @param [in,out] isDir Is item folder?
  * return false if there was error or item was completely processed.
  */
-bool GetOpenTwoItems(const CDiffContext& ctxt, SELECTIONTYPE selectionType, uintptr_t pos1, uintptr_t pos2, const DIFFITEM *pdi[3],
+bool GetOpenTwoItems(const CDiffContext& ctxt, SELECTIONTYPE selectionType, DIFFITEM *pos1, DIFFITEM *pos2, const DIFFITEM *pdi[3],
 		PathContext & paths, int & sel1, int & sel2, bool & isDir, int nPane[3], String& errmsg)
 {
 	// Two items selected, get their info
@@ -784,7 +802,7 @@ bool GetOpenTwoItems(const CDiffContext& ctxt, SELECTIONTYPE selectionType, uint
  * @param [in,out] isDir Is item folder?
  * return false if there was error or item was completely processed.
  */
-bool GetOpenThreeItems(const CDiffContext& ctxt, uintptr_t pos1, uintptr_t pos2, uintptr_t pos3, const DIFFITEM *pdi[3],
+bool GetOpenThreeItems(const CDiffContext& ctxt, DIFFITEM *pos1, DIFFITEM *pos2, DIFFITEM *pos3, const DIFFITEM *pdi[3],
 	PathContext & paths, int & sel1, int & sel2, int & sel3, bool & isDir, int nPane[3], String& errmsg)
 {
 	String pathLeft, pathMiddle, pathRight;
@@ -792,7 +810,7 @@ bool GetOpenThreeItems(const CDiffContext& ctxt, uintptr_t pos1, uintptr_t pos2,
 	// FIXME:
 	for (int nIndex = 0; nIndex < 3; ++nIndex)
 		nPane[nIndex] = nIndex;
-	if (!pos3)
+	if (pos3 == 0)
 	{
 		// Two items selected, get their info
 		pdi[0] = &ctxt.GetDiffAt(pos1);
@@ -922,7 +940,7 @@ bool GetOpenThreeItems(const CDiffContext& ctxt, uintptr_t pos1, uintptr_t pos2,
  * @brief Get the file names on both sides for specified item.
  * @note Return empty strings if item is special item.
  */
-void GetItemFileNames(const CDiffContext& ctxt, const DIFFITEM & di, String& strLeft, String& strRight)
+void GetItemFileNames(const CDiffContext& ctxt, const DIFFITEM &di, String& strLeft, String& strRight)
 {
 	const String leftrelpath = paths::ConcatPath(di.diffFileInfo[0].path, di.diffFileInfo[0].filename);
 	const String rightrelpath = paths::ConcatPath(di.diffFileInfo[1].path, di.diffFileInfo[1].filename);
@@ -932,12 +950,12 @@ void GetItemFileNames(const CDiffContext& ctxt, const DIFFITEM & di, String& str
 	strRight = paths::ConcatPath(rightpath, rightrelpath);
 }
 
-String GetItemFileName(const CDiffContext& ctxt, const DIFFITEM & di, int index)
+String GetItemFileName(const CDiffContext& ctxt, const DIFFITEM &di, int index)
 {
 	return paths::ConcatPath(ctxt.GetPath(index), paths::ConcatPath(di.diffFileInfo[index].path, di.diffFileInfo[index].filename));
 }
 
-PathContext GetItemFileNames(const CDiffContext& ctxt, const DIFFITEM & di)
+PathContext GetItemFileNames(const CDiffContext& ctxt, const DIFFITEM &di)
 {
 	PathContext paths;
 	for (int nIndex = 0; nIndex < ctxt.GetCompareDirs(); nIndex++)
@@ -952,7 +970,7 @@ PathContext GetItemFileNames(const CDiffContext& ctxt, const DIFFITEM & di)
 /**
  * @brief Return image index appropriate for this row
  */
-int GetColImage(const DIFFITEM & di)
+int GetColImage(const DIFFITEM &di)
 {
 	// Must return an image index into image list created above in OnInitDialog
 	if (di.diffcode.isResultError())
@@ -1007,7 +1025,7 @@ int GetColImage(const DIFFITEM & di)
 				return DIFFIMG_DIFF;
 		}
 	}
-	return (di.diffcode.isDirectory() ? DIFFIMG_DIR : DIFFIMG_ABORT);
+	return (di.diffcode.isDirectory() ? DIFFIMG_DIR : DIFFIMG_FILE );
 }
 
 /**
@@ -1042,7 +1060,7 @@ void SetDiffStatus(DIFFITEM& di, unsigned  diffcode, unsigned mask)
 	// Someone could figure out these pieces and probably simplify this.
 
 	// Update DIFFITEM code (comparison result)
-	assert(! ((~mask) & diffcode) ); // make sure they only set flags in their mask
+	assert( ((~mask) & diffcode) == 0 ); // make sure they only set flags in their mask
 	di.diffcode.diffcode &= (~mask); // remove current data
 	di.diffcode.diffcode |= diffcode; // add new data
 
@@ -1063,10 +1081,10 @@ void SetDiffCounts(DIFFITEM& di, unsigned diffs, unsigned ignored)
  */
 void SetItemViewFlag(DIFFITEM& di, unsigned flag, unsigned mask)
 {
-	unsigned curFlags = di.customFlags1;
+	unsigned curFlags = di.customFlags;
 	curFlags &= ~mask; // Zero bits masked
 	curFlags |= flag;
-	di.customFlags1 = curFlags;
+	di.customFlags = curFlags;
 }
 
 /**
@@ -1076,9 +1094,9 @@ void SetItemViewFlag(DIFFITEM& di, unsigned flag, unsigned mask)
  */
 void SetItemViewFlag(CDiffContext& ctxt, unsigned flag, unsigned mask)
 {
-	uintptr_t pos = ctxt.GetFirstDiffPosition();
+	DIFFITEM *pos = ctxt.GetFirstDiffPosition();
 
-	while (pos != NULL)
+	while (pos != nullptr)
 	{
 		unsigned curFlags = ctxt.GetCustomFlags1(pos);
 		curFlags &= ~mask; // Zero bits masked
@@ -1262,49 +1280,49 @@ String NumToStr(int n)
 
 void ExpandSubdirs(CDiffContext& ctxt, DIFFITEM& dip)
 {
-	dip.customFlags1 |= ViewCustomFlags::EXPANDED;
-	uintptr_t diffpos = ctxt.GetFirstChildDiffPosition(reinterpret_cast<uintptr_t>(&dip));
-	while (diffpos)
+	dip.customFlags |= ViewCustomFlags::EXPANDED;
+	DIFFITEM *diffpos = ctxt.GetFirstChildDiffPosition(&dip);
+	while (diffpos != nullptr)
 	{
 		DIFFITEM &di = ctxt.GetNextDiffRefPosition(diffpos);
 		if (!di.IsAncestor(&dip))
 			break;
 		if (di.HasChildren())
-			di.customFlags1 |= ViewCustomFlags::EXPANDED;
+			di.customFlags |= ViewCustomFlags::EXPANDED;
 	}
 }
 
 void ExpandAllSubdirs(CDiffContext& ctxt)
 {
-	uintptr_t diffpos = ctxt.GetFirstDiffPosition();
-	while (diffpos)
+	DIFFITEM *diffpos = ctxt.GetFirstDiffPosition();
+	while (diffpos != nullptr)
 	{
 		DIFFITEM &di = ctxt.GetNextDiffRefPosition(diffpos);
-		di.customFlags1 |= ViewCustomFlags::EXPANDED;
+		di.customFlags |= ViewCustomFlags::EXPANDED;
 	}
 }
 
 void CollapseAllSubdirs(CDiffContext& ctxt)
 {
-	uintptr_t diffpos = ctxt.GetFirstDiffPosition();
-	while (diffpos)
+	DIFFITEM *diffpos = ctxt.GetFirstDiffPosition();
+	while (diffpos != nullptr)
 	{
 		DIFFITEM &di = ctxt.GetNextDiffRefPosition(diffpos);
-		di.customFlags1 &= ~ViewCustomFlags::EXPANDED;
+		di.customFlags &= ~ViewCustomFlags::EXPANDED;
 	}
 }
 
 DirViewTreeState *SaveTreeState(const CDiffContext& ctxt)
 {
 	DirViewTreeState *pTreeState = new DirViewTreeState();
-	uintptr_t diffpos = ctxt.GetFirstDiffPosition();
-	while (diffpos)
+	DIFFITEM *diffpos = ctxt.GetFirstDiffPosition();
+	while (diffpos != nullptr)
 	{
 		const DIFFITEM &di = ctxt.GetNextDiffPosition(diffpos);
 		if (di.HasChildren())
 		{
 			String relpath = paths::ConcatPath(di.diffFileInfo[0].path, di.diffFileInfo[0].filename);
-			pTreeState->insert(std::pair<String, bool>(relpath, !!(di.customFlags1 & ViewCustomFlags::EXPANDED)));
+			pTreeState->insert(std::pair<String, bool>(relpath, !!(di.customFlags & ViewCustomFlags::EXPANDED)));
 		}
 	}
 	return pTreeState;
@@ -1312,8 +1330,8 @@ DirViewTreeState *SaveTreeState(const CDiffContext& ctxt)
 
 void RestoreTreeState(CDiffContext& ctxt, DirViewTreeState *pTreeState)
 {
-	uintptr_t diffpos = ctxt.GetFirstDiffPosition();
-	while (diffpos)
+	DIFFITEM *diffpos = ctxt.GetFirstDiffPosition();
+	while (diffpos != nullptr)
 	{
 		DIFFITEM &di = ctxt.GetNextDiffRefPosition(diffpos);
 		if (di.HasChildren())
@@ -1322,8 +1340,8 @@ void RestoreTreeState(CDiffContext& ctxt, DirViewTreeState *pTreeState)
 			std::map<String, bool>::iterator p = pTreeState->find(relpath);
 			if (p != pTreeState->end())
 			{
-				di.customFlags1 &= ~ViewCustomFlags::EXPANDED;
-				di.customFlags1 |= (p->second ? ViewCustomFlags::EXPANDED : 0);
+				di.customFlags &= ~ViewCustomFlags::EXPANDED;
+				di.customFlags |= (p->second ? ViewCustomFlags::EXPANDED : 0);
 			}
 		}
 	}
@@ -1352,7 +1370,7 @@ CheckAllowUpwardDirectory(const CDiffContext& ctxt, const CTempPathContext *pTem
 		path[i] = ctxt.GetNormalizedPath(i);
 
 	// If we have temp context it means we are comparing archives
-	if (pTempPathContext)
+	if (pTempPathContext != nullptr)
 	{
 		std::vector<String> name(path.size());
 		for (int i = 0; i < static_cast<int>(path.size()); ++i)

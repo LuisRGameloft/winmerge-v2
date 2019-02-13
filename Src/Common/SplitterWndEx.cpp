@@ -12,11 +12,6 @@
 #include <vector>
 #include "SplitterWndEx.h"
 
-#ifdef COMPILE_MULTIMON_STUBS
-#undef COMPILE_MULTIMON_STUBS
-#endif
-#include <multimon.h>
-
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -37,9 +32,10 @@ IMPLEMENT_DYNCREATE(CSplitterWndEx, CSplitterWnd)
 
 CSplitterWndEx::CSplitterWndEx()
 {
-	m_bBarLocked = FALSE;
-	m_bResizePanes = FALSE;
-	m_bAutoResizePanes = FALSE;
+	m_bBarLocked = false;
+	m_bResizePanes = false;
+	m_bAutoResizePanes = false;
+	m_bHideBorders = false;
 }
 
 CSplitterWndEx::~CSplitterWndEx()
@@ -59,7 +55,7 @@ CScrollBar* CSplitterWndEx::GetScrollBarCtrl(CWnd* pWnd, int nBar) const
 	UINT nID = pWnd->GetDlgCtrlID();
 	//IdFromRowCol(row, col);
 	if (nID < AFX_IDW_PANE_FIRST || nID > AFX_IDW_PANE_LAST)
-		return NULL;            // not a standard pane ID
+		return nullptr;            // not a standard pane ID
 
 	// appropriate PANE id - look for sibling (splitter, or just frame)
 	UINT nIDScroll;
@@ -76,7 +72,7 @@ void CSplitterWndEx::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
 {
   // Ignore scroll events sent directly to the splitter (i.e. not from a
   // scroll bar)
-  if (pScrollBar == NULL)
+  if (pScrollBar == nullptr)
     return;
 	// maintain original synchronization functionality (all panes above the scrollbar)
 	CSplitterWnd::OnHScroll(nSBCode, nPos, pScrollBar);
@@ -86,7 +82,7 @@ void CSplitterWndEx::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
 		return;
 
 	// enhance with proportional horizontal scroll synchronization
-	ASSERT(pScrollBar != NULL);
+	ASSERT(pScrollBar != nullptr);
 	int curCol = ::GetDlgCtrlID(pScrollBar->m_hWnd) - AFX_IDW_HSCROLL_FIRST;
 	ASSERT(curCol >= 0 && curCol < m_nMaxCols);
 
@@ -126,7 +122,7 @@ void CSplitterWndEx::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
 {
   // Ignore scroll events sent directly to the splitter (i.e. not from a
   // scroll bar)
-  if (pScrollBar == NULL)
+  if (pScrollBar == nullptr)
     return;
 
 	// only sync if shared vertical bars
@@ -137,7 +133,7 @@ void CSplitterWndEx::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
 	CSplitterWnd::OnVScroll(nSBCode, nPos, pScrollBar);
 
 	// enhance with proportional vertical scroll synchronization
-	ASSERT(pScrollBar != NULL);
+	ASSERT(pScrollBar != nullptr);
 	int curRow = ::GetDlgCtrlID(pScrollBar->m_hWnd) - AFX_IDW_VSCROLL_FIRST;
 	ASSERT(curRow >= 0 && curRow < m_nMaxRows);
 
@@ -299,8 +295,8 @@ void CSplitterWndEx::FlipSplit()
 	std::vector<CWnd *> pColPanes(nCols);
 	std::vector<CWnd *> pRowPanes(nRows);
 
-	BOOL bHasVScroll = m_bHasHScroll;
-	BOOL bHasHScroll = m_bHasVScroll;
+	bool bHasVScroll = !!m_bHasHScroll;
+	bool bHasHScroll = !!m_bHasVScroll;
 
 	CScrollBar *pBar;
 	int pane;
@@ -308,20 +304,20 @@ void CSplitterWndEx::FlipSplit()
 	{
 		pRowPanes[pane] = GetDlgItem(IdFromRowCol( 0, pane ));
 		pBar = pRowPanes[pane]->GetScrollBarCtrl(SB_HORZ);
-		if (pBar)
+		if (pBar != nullptr)
 			pBar->ShowWindow(SW_HIDE);
 		pBar = pRowPanes[pane]->GetScrollBarCtrl(SB_VERT);
-		if (pBar)
+		if (pBar != nullptr)
 			pBar->ShowWindow(SW_HIDE);
 	}
 	for (pane = 1; pane < nCols; pane++)
 	{
 		pColPanes[pane] = GetDlgItem(IdFromRowCol( pane, 0 ));
 		pBar = pColPanes[pane]->GetScrollBarCtrl(SB_HORZ);
-		if (pBar)
+		if (pBar != nullptr)
 			pBar->ShowWindow(SW_HIDE);
 		pBar = pColPanes[pane]->GetScrollBarCtrl(SB_VERT);
-		if (pBar)
+		if (pBar != nullptr)
 			pBar->ShowWindow(SW_HIDE);
 	}
 
@@ -360,7 +356,7 @@ static COLORREF GetIntermediateColor(COLORREF a, COLORREF b)
 void CSplitterWndEx::OnDrawSplitter(CDC* pDC, ESplitType nType, const CRect& rectArg)
 {
 	CRect rect = rectArg;
-	if (nType == splitBorder && pDC)
+	if (nType == splitBorder && pDC != nullptr && !m_bHideBorders)
 	{
 		COLORREF clrShadow  = GetSysColor(COLOR_BTNSHADOW);
 		COLORREF clrFace    = GetSysColor(COLOR_BTNFACE);

@@ -19,9 +19,8 @@ Const ACCELERATORS_BLOCK = 5
 
 Const PATH_ENGLISH_POT = "English.pot"
 Const PATH_MERGE_RC = "../../Src/Merge.rc"
-Const PATH_MERGELANG_RC = "MergeLang.rc"
 
-Dim oFSO, bRunFromCmd
+Dim oFSO, bRunFromCmd, bInsertLineNumbers
 
 Set oFSO = CreateObject("Scripting.FileSystemObject")
 
@@ -29,13 +28,17 @@ bRunFromCmd = False
 If LCase(oFSO.GetFileName(Wscript.FullName)) = "cscript.exe" Then
   bRunFromCmd = True
 End If
+bInsertLineNumbers = False
+If WScript.Arguments.Named.Exists("InsertLineNumbers") Then
+  bInsertLineNumbers = CBool(WScript.Arguments.Named("InsertLineNumbers"))
+End If
 
 Call Main
 
 ''
 ' ...
 Sub Main
-  Dim oStrings, sCodePage
+  Dim oStrings
   Dim StartTime, EndTime, Seconds
   Dim bNecessary, oFile
   
@@ -44,16 +47,15 @@ Sub Main
   InfoBox "Creating POT file from Merge.rc...", 3
   
   bNecessary = True
-  If (oFSO.FileExists(PATH_ENGLISH_POT) = True) And (oFSO.FileExists(PATH_MERGELANG_RC) = True) Then 'If the POT and RC file exists...
-    bNecessary = GetArchiveBit(PATH_MERGE_RC) Or GetArchiveBit(PATH_ENGLISH_POT) Or GetArchiveBit(PATH_MERGELANG_RC) 'RCs or POT file changed?
+  If (oFSO.FileExists(PATH_ENGLISH_POT) = True) Then 'If the POT file exists...
+    bNecessary = GetArchiveBit(PATH_MERGE_RC) Or GetArchiveBit(PATH_ENGLISH_POT) 'RCs or POT file changed?
   End If
   
   If (bNecessary = True) Then 'If update necessary...
-    Set oStrings = GetStringsFromRcFile(PATH_MERGE_RC, sCodePage)
-    CreateMasterPotFile PATH_ENGLISH_POT, oStrings, sCodePage
+    Set oStrings = GetStringsFromRcFile(PATH_MERGE_RC)
+    CreateMasterPotFile PATH_ENGLISH_POT, oStrings
     SetArchiveBit PATH_MERGE_RC, False
     SetArchiveBit PATH_ENGLISH_POT, False
-    SetArchiveBit PATH_MERGELANG_RC, False
     For Each oFile In oFSO.GetFolder(".").Files 'For all files in the current folder...
       If (LCase(oFSO.GetExtensionName(oFile.Name)) = "po") Then 'If a PO file...
         SetArchiveBit oFile.Path, True
@@ -72,7 +74,7 @@ End Sub
 ''
 ' ...
 Class CString
-  Dim Comment, UniqueId, Context, Id, Str
+  Dim Comment, References, UniqueId, Context, Id, Str
 End Class
 
 Function MyMod(ByVal a, ByVal b)
@@ -101,10 +103,10 @@ End Function
 
 ''
 ' ...
-Function GetStringsFromRcFile(ByVal sRcFilePath, ByRef sCodePage)
+Function GetStringsFromRcFile(ByVal sRcFilePath)
   Dim oBlacklist, oStrings, oString, oRcFile, sLine, iLine, oUIDs
   Dim sRcFileName, iBlockType, sReference, sString, sComment, sContext, oMatch, sTemp, sKey
-  Dim oLcFile, sLcLine, fContinuation
+  Dim fContinuation
 
   Set oBlacklist = GetStringBlacklist("StringBlacklist.txt")
   
@@ -115,14 +117,12 @@ Function GetStringsFromRcFile(ByVal sRcFilePath, ByRef sCodePage)
     sRcFileName = oFSO.GetFileName(sRcFilePath)
     iLine = 0
     iBlockType = NO_BLOCK
-    sCodePage = ""
     Set oRcFile = oFSO.OpenTextFile(sRcFilePath, ForReading)
-    Set oLcFile = oFSO.CreateTextFile("MergeLang.rc", True)
     Do Until oRcFile.AtEndOfStream = True 'For all lines...
-      sLcLine = oRcFile.ReadLine
-      sLine = Trim(sLcLine)
+      sLine = Trim(oRcFile.ReadLine)
       iLine = iLine + 1
       
+      sReference = sRcFileName & ":" & iLine
       sString = ""
       sComment = ""
       sContext = ""
@@ -157,7 +157,6 @@ Function GetStringsFromRcFile(ByVal sRcFilePath, ByRef sCodePage)
             ElseIf (FoundRegExpMatch(sLine, "code_page\(([\d]+)\)", oMatch) = True) Then 'code_page...
               sString = oMatch.SubMatches(0)
               sComment = "Codepage"
-              sCodePage = oMatch.SubMatches(0)
             End If
             
           Case MENU_BLOCK, DIALOGEX_BLOCK, STRINGTABLE_BLOCK:
@@ -169,7 +168,6 @@ Function GetStringsFromRcFile(ByVal sRcFilePath, ByRef sCodePage)
                 sTemp = oMatch.SubMatches(0)
                 If (sTemp <> "") And (oBlacklist.Exists(sTemp) = False) Then 'If NOT blacklisted...
                   sString = Replace(sTemp, """""", "\""")
-                  sLcLine = Replace(sLcLine, """" & sTemp & """", """" & sRcFileName & ":" & Hex(GetUniqueId(oUIDs, sString)) & """", 1, 1)
                   If (FoundRegExpMatch(sLine, "//#\. (.*?)$", oMatch) = True) Then 'If found a comment for the translators...
                     sComment = Trim(oMatch.SubMatches(0))
                   ElseIf (FoundRegExpMatch(sLine, "//msgctxt (.*?)$", oMatch) = True) Then 'If found a context for the translation...
@@ -205,6 +203,13 @@ Function GetStringsFromRcFile(ByVal sRcFilePath, ByRef sCodePage)
           oString.Comment = sComment
         End If
         oString.UniqueId = sRcFileName & ":" & Hex(GetUniqueId(oUIDs, sString))
+        If bInsertLineNumbers Then
+          If (oString.References <> "") Then
+            oString.References = oString.References & vbTab & sReference
+          Else
+            oString.References = sReference
+          End If
+        End If
         oString.Context = sContext
         oString.Id = sString
         oString.Str = ""
@@ -215,12 +220,9 @@ Function GetStringsFromRcFile(ByVal sRcFilePath, ByRef sCodePage)
           oStrings.Add sContext & sString, oString
         End If
       End If
-      oLcFile.WriteLine sLcLine
       fContinuation = sLine <> "" And InStr(",|", Right(sLine, 1)) <> 0
     Loop
-    oLcFile.WriteLine "MERGEPOT RCDATA ""English.pot"""
     oRcFile.Close
-    oLcFile.Close
   End If
   Set GetStringsFromRcFile = oStrings
 End Function
@@ -250,16 +252,13 @@ End Function
 
 ''
 ' ...
-Sub CreateMasterPotFile(ByVal sPotPath, ByVal oStrings, ByVal sCodePage)
-  Dim oPotFile, sKey, oString, i
+Sub CreateMasterPotFile(ByVal sPotPath, ByVal oStrings)
+  Dim oPotFile, sKey, oString, aReferences, i
   
   Set oPotFile = oFSO.CreateTextFile(sPotPath, True)
   
   oPotFile.Write "# This file is part from WinMerge <http://winmerge.org/>" & vbLf
   oPotFile.Write "# Released under the ""GNU General Public License""" & vbLf
-  oPotFile.Write "#" & vbLf
-  oPotFile.Write "# ID line follows -- this is updated by SVN" & vbLf
-  oPotFile.Write "# $" & "Id: " & "$" & vbLf
   oPotFile.Write "#" & vbLf
   oPotFile.Write "msgid """"" & vbLf
   oPotFile.Write "msgstr """"" & vbLf
@@ -270,10 +269,10 @@ Sub CreateMasterPotFile(ByVal sPotPath, ByVal oStrings, ByVal sCodePage)
   oPotFile.Write """Last-Translator: \n""" & vbLf
   oPotFile.Write """Language-Team: English <winmerge-translate@lists.sourceforge.net>\n""" & vbLf
   oPotFile.Write """MIME-Version: 1.0\n""" & vbLf
-  oPotFile.Write """Content-Type: text/plain; charset=CP" & sCodePage & "\n""" & vbLf
+  oPotFile.Write """Content-Type: text/plain; charset=UTF-8\n""" & vbLf
   oPotFile.Write """Content-Transfer-Encoding: 8bit\n""" & vbLf
   oPotFile.Write """X-Poedit-Language: English\n""" & vbLf
-  oPotFile.Write """X-Poedit-SourceCharset: CP" & sCodePage & "\n""" & vbLf
+  oPotFile.Write """X-Poedit-SourceCharset: UTF-8\n""" & vbLf
   oPotFile.Write """X-Poedit-Basepath: ../../Src/\n""" & vbLf
   'oPotFile.Write """X-Generator: CreateMasterPotFile.vbs\n""" & vbLf
   oPotFile.Write vbLf
@@ -282,8 +281,16 @@ Sub CreateMasterPotFile(ByVal sPotPath, ByVal oStrings, ByVal sCodePage)
     If (oString.Comment <> "") Then 'If comment exists...
       oPotFile.Write "#. " & oString.Comment & vbLf
     End If
+    If bInsertLineNumbers Then
+      aReferences = SplitByTab(oString.References)
+      For i = LBound(aReferences) To UBound(aReferences) 'For all references...
+        oPotFile.Write "#: " & aReferences(i) & vbLf
+      Next
+    End If
     oPotFile.Write "#: " & oString.UniqueId & vbLf
-    oPotFile.Write "#, c-format" & vbLf
+    If (InStr(oString.Id, "%") > 0) Then 'If c-format...
+      oPotFile.Write "#, c-format" & vbLf
+    End If
     If (oString.Context <> "") Then 'If context exists...
       oPotFile.Write "msgctxt """ & oString.Context & """" & vbLf
     End If

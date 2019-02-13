@@ -50,8 +50,8 @@ SetupAppRunningError=Обнаружен запущенный экземпляр %1.%n%nПожалуйста, закройте 
 UninstallAppRunningError=Деинсталлятор обнаружил запущенный экземпляр %1.%n%nПожалуйста, закройте все экземпляры приложения, затем нажмите «OK», чтобы продолжить, или «Отмена», чтобы выйти.
 
 ; *** Misc. errors
-ErrorCreatingDir=Невозможно создать папку "%1"
-ErrorTooManyFilesInDir=Невозможно создать файл в каталоге "%1", так как в нём слишком много файлов
+ErrorCreatingDir=Не удается создать папку "%1"
+ErrorTooManyFilesInDir=Не удается создать файл в папке "%1", так как в ней слишком много файлов
 
 ; *** Setup common messages
 ExitSetupTitle=Выход из программы установки
@@ -79,13 +79,13 @@ ButtonNewFolder=&Создать папку
 
 ; *** "Select Language" dialog messages
 SelectLanguageTitle=Выберите язык установки
-SelectLanguageLabel=Выберите язык, который будет использован в  процессе установки:
+SelectLanguageLabel=Выберите язык, который будет использован в процессе установки:
 
 ; *** Common wizard text
 ClickNext=Нажмите «Далее», чтобы продолжить, или «Отмена», чтобы выйти из программы установки.
 BeveledLabel=
 BrowseDialogTitle=Обзор папок
-BrowseDialogLabel=Выберите папку из списка и нажмите «ОК».
+BrowseDialogLabel=Выберите папку из списка и нажмите «OK».
 NewFolderName=Новая папка
 
 ; *** "Welcome" wizard page
@@ -298,7 +298,7 @@ StatusUninstalling=Деинсталляция %1...
 ;Inno Setup Built-in Custom Messages
 NameAndVersion=%1, версия %2
 AdditionalIcons=Дополнительные значки:
-OptionalFeatures=Optional Features:
+OptionalFeatures=Дополнительные возможности:
 CreateDesktopIcon=Создать значок на &Рабочем столе
 CreateQuickLaunchIcon=Создать значок в &Панели быстрого запуска
 ProgramOnTheWeb=Сайт %1 в Интернете
@@ -311,56 +311,57 @@ AssocingFileExtension=Связывание %1 с файлами %2...
 CompanyName=Thingamahoochie Software
 
 ;Types
-TypicalInstallation=Typical Installation
-FullInstallation=Full Installation
-CompactInstallation=Compact Installation
-CustomInstallation=Custom Installation
+TypicalInstallation=Обычная установка
+FullInstallation=Полная установка
+CompactInstallation=Компактная установка
+CustomInstallation=Выборочная установка
 
 ;Components
-AppCoreFiles=WinMerge Core Files
-Filters=Filters
-Plugins=Plugins
-Frhed=Frhed(Free hex editor)
+AppCoreFiles=Основные файлы WinMerge
+Filters=Фильтры
+Plugins=Плагины
+Frhed=Frhed(Бесплатный HEX редактор)
 WinIMerge=WinIMerge(Image Diff/Merge)
-ArchiveSupport=Archive Support
-ShellExtension32bit=32-bit WinMerge ShellExtension
-Patch=GnuWin32 Patch for Windows
+ArchiveSupport=Поддержка архивов
+ShellExtension32bit=32-битное расширение оболочки WinMerge
+Patch=GnuWin32 патч для Windows
 
 ;Localization Components
-Languages=Languages
-BasqueLanguage=Basque menus and dialogs
-BulgarianLanguage=Bulgarian menus and dialogs
-CatalanLanguage=Catalan menus and dialogs
-ChineseSimplifiedLanguage=Chinese (Simplified) menus and dialogs
-ChineseTraditionalLanguage=Chinese (Traditional) menus and dialogs
-CroatianLanguage=Croatian menus and dialogs
-CzechLanguage=Czech menus and dialogs
-DanishLanguage=Danish menus and dialogs
-DutchLanguage=Dutch menus and dialogs
-FinnishLanguage=Finnish menus and dialogs
-FrenchLanguage=French menus and dialogs
-GalicianLanguage=Galician menus and dialogs
-GermanLanguage=German menus and dialogs
-GreekLanguage=Greek menus and dialogs
-HungarianLanguage=Hungarian menus and dialogs
-ItalianLanguage=Italian menus and dialogs
-JapaneseLanguage=Japanese menus and dialogs
-KoreanLanguage=Korean menus and dialogs
-NorwegianLanguage=Norwegian menus and dialogs
-PersianLanguage=Persian menus and dialogs
-PolishLanguage=Polish menus and dialogs
-PortugueseBrazilLanguage=Portuguese (Brazilian) menus and dialogs
-PortugueseLanguage=Portuguese menus and dialogs
-RomanianLanguage=Romanian menus and dialogs
-RussianLanguage=Russian menus and dialogs
-SerbianLanguage=Serbian menus and dialogs
-SinhalaLanguage=Sinhala menus and dialogs
-SlovakLanguage=Slovak menus and dialogs
-SlovenianLanguage=Slovenian menus and dialogs
-SpanishLanguage=Spanish menus and dialogs
-SwedishLanguage=Swedish menus and dialogs
-TurkishLanguage=Turkish menus and dialogs
-UkrainianLanguage=Ukrainian menus and dialogs
+Languages=Языки интерфейса (меню и диалоги)
+BasqueLanguage=Баскский
+BulgarianLanguage=Болгарский
+CatalanLanguage=Каталанский
+ChineseSimplifiedLanguage=Китайский (упрощенный)
+ChineseTraditionalLanguage=Китайский (традиционный)
+CroatianLanguage=Хорватский
+CzechLanguage=Чешский
+DanishLanguage=Датский
+DutchLanguage=Голландский
+FinnishLanguage=Финский
+FrenchLanguage=Французский
+GalicianLanguage=Галисийский
+GermanLanguage=Немецкий
+GreekLanguage=Греческий
+HungarianLanguage=Венгерский
+ItalianLanguage=Итальянский
+JapaneseLanguage=Японский
+KoreanLanguage=Корейский
+LithuanianLanguage=Литовский
+NorwegianLanguage=Норвежский
+PersianLanguage=Персидский
+PolishLanguage=Польский
+PortugueseBrazilLanguage=Португальский (Бразилия)
+PortugueseLanguage=Португальский
+RomanianLanguage=Румынский
+RussianLanguage=Русский
+SerbianLanguage=Сербский
+SinhalaLanguage=Сингальский
+SlovakLanguage=Словацкий
+SlovenianLanguage=Словенский
+SpanishLanguage=Испанский
+SwedishLanguage=Шведский
+TurkishLanguage=Турецкий
+UkrainianLanguage=Украинский
 
 ;Tasks
 ExplorerContextMenu=&Enable Explorer context menu integration
@@ -388,4 +389,4 @@ ViewStartMenuFolder=&View the WinMerge Start Menu Folder
 DeletePreviousStartMenu=The installer has detected that you changed the location of your start menu from "%s" to "%s". Would you like to delete the previous start menu folder?
 
 ; Project file description
-ProjectFileDesc=WinMerge Project file
+ProjectFileDesc=Файл проекта WinMerge

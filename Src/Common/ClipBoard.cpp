@@ -10,7 +10,7 @@
  * @brief Copies string to clipboard.
  * @param [in] text Text to copy to clipboard.
  * @param [in] currentWindowHandle Handle to current window.
- * @return TRUE if text copying succeeds, FALSE otherwise.
+ * @return `true` if text copying succeeds, `false` otherwise.
  */
 bool PutToClipboard(const String & text, HWND currentWindowHandle)
 {
@@ -23,15 +23,15 @@ bool PutToClipboard(const String & text, HWND currentWindowHandle)
 		EmptyClipboard();
 		const size_t dataSiz = text.length() + 1;
 		HGLOBAL hData = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, dataSiz * sizeof(TCHAR));
-		if (hData != NULL)
+		if (hData != nullptr)
 		{
 			if (LPTSTR pszData = static_cast<LPTSTR>(::GlobalLock(hData)))
 			{
 				_tcscpy_s(pszData, dataSiz, text.c_str());
 				GlobalUnlock(hData);
 			}
-			UINT fmt = GetClipTcharTextFormat();
-			bOK = SetClipboardData(fmt, hData) != NULL;
+			CLIPFORMAT fmt = GetClipTcharTextFormat();
+			bOK = SetClipboardData(fmt, hData) != nullptr;
 		}
 		CloseClipboard();
 	}
@@ -42,19 +42,19 @@ bool PutToClipboard(const String & text, HWND currentWindowHandle)
  * @brief Retrieves the string from clipboard.
  * @param [out] text Text copied from clipboard.
  * @param [in] currentWindowHandle Handle to current window.
- * @return TRUE if retrieving the clipboard text succeeds, FALSE otherwise.
+ * @return `true` if retrieving the clipboard text succeeds, `false` otherwise.
  */
 bool GetFromClipboard(String & text, HWND currentWindowHandle)
 {
 	bool bSuccess = false;
 	if (OpenClipboard(currentWindowHandle))
 	{
-		UINT fmt = GetClipTcharTextFormat();
+		CLIPFORMAT fmt = GetClipTcharTextFormat();
 		HGLOBAL hData = GetClipboardData(fmt);
-		if (hData != NULL)
+		if (hData != nullptr)
 		{
 			LPTSTR pszData = (LPTSTR) GlobalLock(hData);
-			if (pszData != NULL)
+			if (pszData != nullptr)
 			{
 				text = pszData;
 				GlobalUnlock(hData);

@@ -44,7 +44,7 @@ class DropHandler;
  * @brief The Open-View class.
  * The Open-View allows user to select paths to compare. In addition to
  * the two paths, there are controls for selecting filter and unpacker plugin.
- * If one of the paths is a project file, that projec file is loaded,
+ * If one of the paths is a project file, that project file is loaded,
  * overwriting possible other values in other dialog controls.
  * The dialog shows also a status of the selected paths (found/not found),
  * if enabled in the options (enabled by default).
@@ -81,16 +81,18 @@ public:
 // Operations
 public:
 	void UpdateButtonStates();
+	void UpdateResources();
 
 // Implementation data
 private:
 	String m_strBrowsePath[3]; /**< Left/middle/right path from browse dialog. */
 	CWinThread *m_pUpdateButtonStatusThread;
 	CPicture m_picture; /**< Image loader/viewer for logo image */
-	CRectTracker m_rectTracker;
 	CSize m_sizeOrig;
 	prdlg::CMoveConstraint m_constraint;
 	CFont m_fontSwapButton;
+	HICON const m_hIconRotate;
+	HCURSOR const m_hCursorNo;
 	std::array<bool, 3> m_bAutoCompleteReady;
 	DropHandler *m_pDropHandler;
 // Overrides
@@ -100,7 +102,6 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 	virtual void OnInitialUpdate(); // called first time after construct
 	virtual void OnUpdate(CView* pSender, LPARAM lHint, CObject* pHint);
-	virtual BOOL PreTranslateMessage(MSG* pMsg);
 
 // Implementation
 public:
@@ -109,7 +110,7 @@ public:
 protected:
 	void SetStatus(UINT msgID);
 	void SetUnpackerStatus(UINT msgID);
-	BOOL LoadProjectFile(const String &path);
+	bool LoadProjectFile(const String &path);
 	void TerminateThreadIfRunning();
 	void TrimPaths();
 	void OnButton(int index);
@@ -131,6 +132,7 @@ protected:
 	template <int N>
 	afx_msg void OnSelchangePathCombo();
 	afx_msg void OnSetfocusPathCombo(UINT id, NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnDragBeginPathCombo(UINT id, NMHDR *pNMHDR, LRESULT *pResult);
 	template<int id1, int id2>
 	afx_msg void OnSwapButton();
 	afx_msg void OnEditEvent();
@@ -146,8 +148,10 @@ protected:
 	afx_msg void OnDropFiles(const std::vector<String>& files);
 	afx_msg LRESULT OnUpdateStatus(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnPaint();
-	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
-	afx_msg BOOL OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message);
+	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg LRESULT OnNcHitTest(CPoint point);
+	afx_msg void OnWindowPosChanging(WINDOWPOS* lpwndpos);
 	afx_msg void OnWindowPosChanged(WINDOWPOS* lpwndpos);
 	afx_msg void OnDestroy();
 	//}}AFX_MSG

@@ -1,19 +1,18 @@
 // my own _fstat() and _wstat() implementation for the bug https://connect.microsoft.com/VisualStudio/feedback/details/1600505/stat-not-working-on-windows-xp-using-v14-xp-platform-toolset-vs2015
 #include <sys/stat.h>
 #include <io.h>
-#include <cstdint>
 #include <cerrno>
 #include <Windows.h>
 
 inline time_t filetime_to_time_t(const FILETIME& ft)
 {
-	return ((static_cast<int64_t>(ft.dwHighDateTime) << 32) + ft.dwLowDateTime) / 10000000ULL - 11644473600ULL;
+	return ((static_cast<time_t>(ft.dwHighDateTime) << 32) + ft.dwLowDateTime) / 10000000ULL - 11644473600ULL;
 }
 
 template<typename FileInfo>
 inline void set_statbuf(const FileInfo& hfi, struct _stat64& buf)
 {
-	buf.st_size = (static_cast<int64_t>(hfi.nFileSizeHigh) << 32) | hfi.nFileSizeLow;
+	buf.st_size = (static_cast<__int64>(hfi.nFileSizeHigh) << 32) | hfi.nFileSizeLow;
 	buf.st_atime = filetime_to_time_t(hfi.ftLastAccessTime);
 	buf.st_mtime = filetime_to_time_t(hfi.ftLastWriteTime);
 	buf.st_ctime = filetime_to_time_t(hfi.ftCreationTime);
@@ -26,7 +25,7 @@ inline void set_statbuf(const FileInfo& hfi, struct _stat64& buf)
 
 extern "C" int myfstat(int fd, struct _stat64 *buf)
 {
-	if (!buf)
+	if (buf == nullptr)
 	{
 		errno = EINVAL;
 		return -1;
@@ -46,7 +45,7 @@ extern "C" int myfstat(int fd, struct _stat64 *buf)
 	case FILE_TYPE_PIPE:
 		buf->st_mode = _S_IFIFO;
 		DWORD nBufferSize;
-		if (PeekNamedPipe(hFile, NULL, 0, NULL, &nBufferSize, NULL))
+		if (PeekNamedPipe(hFile, nullptr, 0, nullptr, &nBufferSize, nullptr))
 			buf->st_size = nBufferSize;
 		return 0;
 	case FILE_TYPE_DISK:
@@ -66,12 +65,12 @@ extern "C" int myfstat(int fd, struct _stat64 *buf)
 
 extern "C" int mywstat(const wchar_t *filename, struct _stat64 *buf)
 {
-	if (!buf)
+	if (buf == nullptr)
 	{
 		errno = EINVAL;
 		return -1;
 	}
-	if (wcspbrk(filename, L"*?"))
+	if (wcspbrk(filename, L"*?") != nullptr)
 	{
 		errno = ENOENT;
 		return -1;

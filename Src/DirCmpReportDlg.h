@@ -12,7 +12,7 @@
 
 /** 
  * @brief Folder compare dialog class.
- * This dialog (and class) showa folder-compare report's selections
+ * This dialog (and class) shows folder-compare report's selections
  * for user. Also filename and path for report file can be chosen
  * with this dialog.
  */
@@ -21,7 +21,7 @@ class DirCmpReportDlg : public CTrDialog
 	DECLARE_DYNAMIC(DirCmpReportDlg)
 
 public:
-	explicit DirCmpReportDlg(CWnd* pParent = NULL);   // standard constructor
+	explicit DirCmpReportDlg(CWnd* pParent = nullptr);   // standard constructor
 
 // Dialog Data
 	enum { IDD = IDD_DIRCMP_REPORT };

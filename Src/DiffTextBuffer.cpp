@@ -29,7 +29,6 @@ using Poco::Exception;
 #endif
 
 static bool IsTextFileStylePure(const UniMemFile::txtstats & stats);
-static void EscapeControlChars(String &s);
 static CRLFSTYLE GetTextFileStyle(const UniMemFile::txtstats & stats);
 
 /**
@@ -47,55 +46,6 @@ static bool IsTextFileStylePure(const UniMemFile::txtstats & stats)
 	if (stats.nlfs > 0)
 		nType++;
 	return (nType <= 1);
-}
-
-/**
- * @brief Escape control characters.
- * @param [in,out] s Line of text excluding eol chars.
- *
- * @note Escape sequences follow the pattern
- * (leadin character, high nibble, low nibble, leadout character).
- * The leadin character is '\x0F'. The leadout character is a backslash.
- */
-static void EscapeControlChars(String &s)
-{
-	// Compute buffer length required for escaping
-	size_t n = s.length();
-	LPCTSTR q = s.c_str();
-	size_t i = n;
-	while (i)
-	{
-		TCHAR c = q[--i];
-		// Is it a control character in the range 0..31 except TAB?
-		if (!(c & ~_T('\x1F')) && c != _T('\t'))
-		{
-			n += 3; // Need 3 extra characters to escape
-		}
-	}
-	// Reallocate accordingly
-	i = s.length();
-	s.reserve(n + 1);
-	s.resize(n + 1);
-	LPTSTR p = &s[0];
-	// Copy/translate characters starting at end of string
-	while (i)
-	{
-		TCHAR c = p[--i];
-		// Is it a control character in the range 0..31 except TAB?
-		if (!(c & ~_T('\x1F')) && c != _T('\t'))
-		{
-			// TODO: speed this up via table lookup
-			// Bitwise OR with 0x100 so _itot_s() will output 3 hex digits
-			_itot_s(0x100 | c, p + n - 4, 4, 16);
-			// Replace terminating zero with leadout character
-			p[n - 1] = _T('\\');
-			// Prepare to replace 1st hex digit with leadin character
-			c = _T('\x0F');
-			n -= 3;
-		}
-		p[--n] = c;
-	}
-	s.resize(s.length() - 1);
 }
 
 /**
@@ -163,7 +113,8 @@ bool CDiffTextBuffer::GetLine(int nLineIndex, CString &strLine) const
  * @param [in] bModified New modified status, true if buffer has been
  *   modified since last saving.
  */
-void CDiffTextBuffer::SetModified(bool bModified /*= true*/)
+void CDiffTextBuffer::			/* virtual override */
+SetModified(bool bModified /*= true*/)	
 {
 	CCrystalTextBuffer::SetModified (bModified);
 	m_pOwnerDoc->SetModifiedFlag (bModified);
@@ -190,20 +141,22 @@ bool CDiffTextBuffer::GetFullLine(int nLineIndex, CString &strLine) const
 	return true;
 }
 
-void CDiffTextBuffer::AddUndoRecord(bool bInsert, const CPoint & ptStartPos,
+void CDiffTextBuffer::			/* virtual override */
+AddUndoRecord(bool bInsert, const CPoint & ptStartPos,
 		const CPoint & ptEndPos, LPCTSTR pszText, size_t cchText,
 		int nActionType /*= CE_ACTION_UNKNOWN*/,
-		CDWordArray *paSavedRevisionNumbers)
+		CDWordArray *paSavedRevisionNumbers /*= nullptr*/)
 {
 	CGhostTextBuffer::AddUndoRecord(bInsert, ptStartPos, ptEndPos, pszText,
 		cchText, nActionType, paSavedRevisionNumbers);
 	if (m_aUndoBuf[m_nUndoPosition - 1].m_dwFlags & UNDO_BEGINGROUP)
 	{
 		m_pOwnerDoc->undoTgt.erase(m_pOwnerDoc->curUndo, m_pOwnerDoc->undoTgt.end());
-		m_pOwnerDoc->undoTgt.push_back(m_pOwnerDoc->GetView(m_nThisPane));
+		m_pOwnerDoc->undoTgt.push_back(m_nThisPane);
 		m_pOwnerDoc->curUndo = m_pOwnerDoc->undoTgt.end();
 	}
 }
+
 /**
  * @brief Checks if a flag is set for line.
  * @param [in] line Index (0-based) for line.
@@ -236,12 +189,13 @@ void CDiffTextBuffer::prepareForRescan()
 /** 
  * @brief Called when line has been edited.
  * After editing a line, we don't know if there is a diff or not.
- * So we clear the LF_DIFF flag (and it is more easy to read during edition).
+ * So we clear the LF_DIFF flag (and it is more easy to read during editing).
  * Rescan will set the proper color.
  * @param [in] nLine Line that has been edited.
  */
 
-void CDiffTextBuffer::OnNotifyLineHasBeenEdited(int nLine)
+void CDiffTextBuffer::			/* virtual override */
+OnNotifyLineHasBeenEdited(int nLine)
 {
 	SetLineFlag(nLine, LF_DIFF, false, false, false);
 	SetLineFlag(nLine, LF_TRIVIAL, false, false, false);
@@ -299,10 +253,10 @@ int CDiffTextBuffer::LoadFromFile(LPCTSTR pszFileNameInit,
 		InitNew(); // leave crystal editor in valid, empty state
 		return FileLoadResult::FRESULT_ERROR_UNPACK;
 	}
-	m_unpackerSubcode = infoUnpacker->subcode;
+	m_unpackerSubcode = infoUnpacker->m_subcode;
 
 	// we use the same unpacker for both files, so it must be defined after first file
-	ASSERT(infoUnpacker->bToBeScanned != PLUGIN_AUTO);
+	ASSERT(infoUnpacker->m_PluginOrPredifferMode != PLUGIN_AUTO);
 	// we will load the transformed file
 	LPCTSTR pszFileName = sFileName.c_str();
 
@@ -310,14 +264,14 @@ int CDiffTextBuffer::LoadFromFile(LPCTSTR pszFileNameInit,
 	DWORD nRetVal = FileLoadResult::FRESULT_OK;
 
 	// Set encoding based on extension, if we know one
-	paths::SplitFilename(pszFileName, NULL, NULL, &sExt);
+	paths::SplitFilename(pszFileName, nullptr, nullptr, &sExt);
 	CCrystalTextView::TextDefinition *def = 
 		CCrystalTextView::GetTextType(sExt.c_str());
 	if (def && def->encoding != -1)
 		m_nSourceEncoding = def->encoding;
 	
-	UniFile *pufile = infoUnpacker->pufile;
-	if (pufile == 0)
+	UniFile *pufile = infoUnpacker->m_pufile;
+	if (pufile == nullptr)
 		pufile = new UniMemFile;
 
 	// Now we only use the UniFile interface
@@ -335,7 +289,7 @@ int CDiffTextBuffer::LoadFromFile(LPCTSTR pszFileNameInit,
 	}
 	else
 	{
-		if (infoUnpacker->pluginName.length() > 0)
+		if (infoUnpacker->m_PluginName.length() > 0)
 		{
 			// re-detect codepage
 			int iGuessEncodingType = GetOptionsMgr()->GetInt(OPT_CP_DETECT);
@@ -397,18 +351,6 @@ int CDiffTextBuffer::LoadFromFile(LPCTSTR pszFileNameInit,
 			AppendLine(lineno, sline.c_str(), static_cast<int>(sline.length()));
 			++lineno;
 			preveol = eol;
-			
-			// KLUDGE: Check the UI to process messages
-			MSG msg;
-			while (::PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE))
-			{
-				// pump messages until queue is empty
-				if ( !::AfxGetThread()->PumpMessage() )
-				{
-					// Processed a WM_QUIT message... 
-					_Exit(-1);
-				}
-			}
 
 		} while (!done);
 
@@ -483,12 +425,12 @@ int CDiffTextBuffer::LoadFromFile(LPCTSTR pszFileNameInit,
  * @brief Saves file from buffer to disk
  *
  * @param bTempFile : false if we are saving user files and
- * true if we are saving workin-temp-files for diff-engine
+ * true if we are saving working-temp-files for diff-engine
  *
  * @return SAVE_DONE or an error code (list in MergeDoc.h)
  */
 int CDiffTextBuffer::SaveToFile (const String& pszFileName,
-		bool bTempFile, String & sError, PackingInfo * infoUnpacker /*= NULL*/,
+		bool bTempFile, String & sError, PackingInfo * infoUnpacker /*= nullptr*/,
 		CRLFSTYLE nCrlfStyle /*= CRLF_STYLE_AUTOMATIC*/,
 		bool bClearModifiedFlag /*= true*/,
 		int nStartLine /*= 0*/, int nLines /*= -1*/)
@@ -505,7 +447,7 @@ int CDiffTextBuffer::SaveToFile (const String& pszFileName,
 
 	if (nCrlfStyle == CRLF_STYLE_AUTOMATIC &&
 		!GetOptionsMgr()->GetBool(OPT_ALLOW_MIXED_EOL) ||
-		infoUnpacker && infoUnpacker->disallowMixedEOL)
+		infoUnpacker!=nullptr && infoUnpacker->m_bDisallowMixedEOL)
 	{
 			// get the default nCrlfStyle of the CDiffTextBuffer
 		nCrlfStyle = GetCRLFMode();
@@ -516,20 +458,22 @@ int CDiffTextBuffer::SaveToFile (const String& pszFileName,
 	bool bSaveSuccess = false;
 
 	UniStdioFile file;
-	file.SetUnicoding(m_encoding.m_unicoding);
-	file.SetBom(m_encoding.m_bom);
-	file.SetCodepage(m_encoding.m_codepage);
 
 	String sIntermediateFilename; // used when !bTempFile
 
 	if (bTempFile)
 	{
+		file.SetUnicoding(ucr::UCS2LE);
+		file.SetBom(true);
 		bOpenSuccess = !!file.OpenCreate(pszFileName);
 	}
 	else
 	{
+		file.SetUnicoding(m_encoding.m_unicoding);
+		file.SetBom(m_encoding.m_bom);
+		file.SetCodepage(m_encoding.m_codepage);
 		sIntermediateFilename = env::GetTemporaryFileName(m_strTempPath,
-			_T("MRG_"), NULL);
+			_T("MRG_"), nullptr);
 		if (sIntermediateFilename.empty())
 			return SAVE_FAILED;  //Nothing to do if even tempfile name fails
 		bOpenSuccess = !!file.OpenCreate(sIntermediateFilename);
@@ -556,6 +500,7 @@ int CDiffTextBuffer::SaveToFile (const String& pszFileName,
 	// line loop : get each real line and write it in the file
 	String sLine;
 	String sEol = GetStringEol(nCrlfStyle);
+	int lastRealLine = ApparentLastRealLine();
 	for (int line = nStartLine; line < nStartLine + nLines; ++line)
 	{
 		if (GetLineFlags(line) & LF_GHOST)
@@ -572,20 +517,19 @@ int CDiffTextBuffer::SaveToFile (const String& pszFileName,
 		else
 			sLine = _T("");
 
-		if (bTempFile)
-			EscapeControlChars(sLine);
 		// last real line ?
-		int lastRealLine = ApparentLastRealLine();
 		if (line == lastRealLine || lastRealLine == -1 )
 		{
-			// last real line is never EOL terminated
-			ASSERT (_tcslen(GetLineEol(line)) == 0);
-			// write the line and exit loop
-			file.WriteString(sLine);
-			break;
+			// If original last line had no EOL, then we are done
+			if( !m_aLines[line].HasEol() )
+			{
+				file.WriteString(sLine);
+				break;
+			}
+			// Otherwise, add the appropriate EOL to the last line ...
 		}
 
-		// normal real line : append an EOL
+		// normal line : append an EOL
 		if (nCrlfStyle == CRLF_STYLE_AUTOMATIC || nCrlfStyle == CRLF_STYLE_MIXED)
 		{
 			// either the EOL of the line (when preserve original EOL chars is on)
@@ -599,6 +543,12 @@ int CDiffTextBuffer::SaveToFile (const String& pszFileName,
 
 		// write this line to the file (codeset or unicode conversions are done there
 		file.WriteString(sLine);
+
+		if (line == lastRealLine || lastRealLine == -1)
+		{
+			// Last line, so now done
+			break;
+		}
 	}
 	file.Close();
 
@@ -606,10 +556,10 @@ int CDiffTextBuffer::SaveToFile (const String& pszFileName,
 	{
 		// If we are saving user files
 		// we need an unpacker/packer, at least a "do nothing" one
-		ASSERT(infoUnpacker != NULL);
+		ASSERT(infoUnpacker != nullptr);
 		// repack the file here, overwrite the temporary file we did save in
 		String csTempFileName = sIntermediateFilename;
-		infoUnpacker->subcode = m_unpackerSubcode;
+		infoUnpacker->m_subcode = m_unpackerSubcode;
 		if (!FileTransform::Packing(csTempFileName, *infoUnpacker))
 		{
 			try
@@ -654,7 +604,7 @@ int CDiffTextBuffer::SaveToFile (const String& pszFileName,
 			m_dwRevisionNumberOnSave = m_dwCurrentRevisionNumber;
 
 			// redraw line revision marks
-			UpdateViews (NULL, NULL, UPDATE_FLAGSONLY);	
+			UpdateViews (nullptr, nullptr, UPDATE_FLAGSONLY);	
 		}
 		catch (Exception& e)
 		{
@@ -706,9 +656,9 @@ bool CDiffTextBuffer::curUndoGroup()
 	return (m_aUndoBuf.size() != 0 && m_aUndoBuf[0].m_dwFlags&UNDO_BEGINGROUP);
 }
 
-bool CDiffTextBuffer::
+bool CDiffTextBuffer::			/* virtual override */
 DeleteText2(CCrystalTextView * pSource, int nStartLine, int nStartChar,
-	int nEndLine, int nEndChar, int nAction, bool bHistory /*=true*/)
+	int nEndLine, int nEndChar, int nAction /*= CE_ACTION_UNKNOWN*/, bool bHistory /*= true*/)
 {
 	for (auto syncpnt : m_pOwnerDoc->GetSyncPointList())
 	{

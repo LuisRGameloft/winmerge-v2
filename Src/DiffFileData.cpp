@@ -6,19 +6,21 @@
  * @date  Created: 2003-08-22
  */
 
+#include "stdafx.h"
 #include "DiffFileData.h"
-#ifdef _WIN32
 #include <io.h>
-#else
-#include <sys/types.h>
-#include <unistd.h>
-#endif
 #include <memory>
 #include "DiffItem.h"
 #include "FileLocation.h"
 #include "diff.h"
+#include "TFile.h"
 #include "FileTransform.h"
 #include "unicoder.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
 
 /**
  * @brief Simple initialization of DiffFileData
@@ -72,7 +74,7 @@ bool DiffFileData::DoOpenFiles()
 		// but these are often temporary files
 		// Displayable (original) paths are m_sDisplayFilepath[i]
 		m_inf[i].name = _strdup(ucr::toSystemCP(m_sDisplayFilepath[i]).c_str());
-		if (m_inf[i].name == NULL)
+		if (m_inf[i].name == nullptr)
 			return false;
 
 		// Open up file descriptors
@@ -80,22 +82,14 @@ bool DiffFileData::DoOpenFiles()
 		// Also, WinMerge-modified diffutils handles all three major eol styles
 		if (m_inf[i].desc == 0)
 		{
-#ifdef _WIN32
-			_tsopen_s(&m_inf[i].desc, m_FileLocation[i].filepath.c_str(),
+			_tsopen_s(&m_inf[i].desc, TFile(m_FileLocation[i].filepath).wpath().c_str(),
 					O_RDONLY | O_BINARY, _SH_DENYWR, _S_IREAD);
-#else
-			m_inf[i].desc = open(m_FileLocation[i].filepath.c_str(), O_RDONLY);
-#endif
 		}
 		if (m_inf[i].desc < 0)
 			return false;
 
 		// Get file stats (diffutils uses these)
-#ifdef _WIN32
 		if (myfstat(m_inf[i].desc, &m_inf[i].stat) != 0)
-#else
-		if (fstat(m_inf[i].desc, &m_inf[i].stat) != 0)
-#endif
 		{
 			return false;
 		}
@@ -114,7 +108,7 @@ bool DiffFileData::DoOpenFiles()
 /** @brief Clear inf structure to pristine */
 void DiffFileData::Reset()
 {
-	assert(m_inf);
+	assert(m_inf != nullptr);
 	// If diffutils put data in, have it cleanup
 	if (m_used)
 	{
@@ -130,7 +124,7 @@ void DiffFileData::Reset()
 			m_inf[1].desc = 0;
 		}
 		free((void *)m_inf[i].name);
-		m_inf[i].name = NULL;
+		m_inf[i].name = nullptr;
 
 		if (m_inf[i].desc > 0)
 		{
@@ -156,7 +150,7 @@ bool DiffFileData::Filepath_Transform(bool bForceUTF8,
 
 	// FileTransform_Prediffing tries each prediffer for the pointed out filteredFilenames
 	// if a prediffer fails, we consider it is not the good one, that's all
-	// FileTransform_Prediffing returns FALSE only if the prediffer works, 
+	// FileTransform_Prediffing returns `false` only if the prediffer works, 
 	// but the data can not be saved to disk (no more place ??)
 	if (!FileTransform::Prediffing(infoPrediffer, filepathTransformed, filteredFilenames, bMayOverwrite))
 		return false;

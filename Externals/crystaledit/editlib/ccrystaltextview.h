@@ -52,26 +52,26 @@ class CCrystalTextMarkers;
 // CCrystalTextView class declaration
 
 //  CCrystalTextView::FindText() flags
-enum
+enum : unsigned
 {
-  FIND_MATCH_CASE = 0x0001,
-  FIND_WHOLE_WORD = 0x0002,
-  FIND_REGEXP = 0x0004,
-  FIND_DIRECTION_UP = 0x0010,
-  REPLACE_SELECTION = 0x0100, 
-  FIND_NO_WRAP = 0x200,
-  FIND_NO_CLOSE = 0x400
+  FIND_MATCH_CASE = 0x0001U,
+  FIND_WHOLE_WORD = 0x0002U,
+  FIND_REGEXP = 0x0004U,
+  FIND_DIRECTION_UP = 0x0010U,
+  REPLACE_SELECTION = 0x0100U, 
+  FIND_NO_WRAP = 0x200U,
+  FIND_NO_CLOSE = 0x400U
 };
 
 //  CCrystalTextView::UpdateView() flags
-enum
+enum : unsigned
 {
-  UPDATE_HORZRANGE = 0x0001,  //  update horz scrollbar
-  UPDATE_VERTRANGE = 0x0002, //  update vert scrollbar
-  UPDATE_SINGLELINE = 0x0100,    //  single line has changed
-  UPDATE_FLAGSONLY = 0x0200, //  only line-flags were changed
+  UPDATE_HORZRANGE = 0x0001U,  //  update horz scrollbar
+  UPDATE_VERTRANGE = 0x0002U, //  update vert scrollbar
+  UPDATE_SINGLELINE = 0x0100U,    //  single line has changed
+  UPDATE_FLAGSONLY = 0x0200U, //  only line-flags were changed
 
-  UPDATE_RESET = 0x1000       //  document was reloaded, update all!
+  UPDATE_RESET = 0x1000U       //  document was reloaded, update all!
 };
 
 /**
@@ -142,7 +142,6 @@ private :
     int m_nLastLineIndexCalculatedSubLineIndex;
     //END SW
 
-    int m_nMaxLineLength;
     int m_nIdealCharPos;
 
     bool m_bFocused;
@@ -213,7 +212,7 @@ public :
     void SetColorContext(SyntaxColors * pColors) { m_pColors = pColors; }
     CCrystalTextMarkers * GetMarkers() const { return m_pMarkers; }
     void SetMarkersContext(CCrystalTextMarkers * pMarkers);
-    static int GetClipTcharTextFormat() { return sizeof(TCHAR) == 1 ? CF_TEXT : CF_UNICODETEXT; }
+    static CLIPFORMAT GetClipTcharTextFormat() { return sizeof(TCHAR) == 1 ? CF_TEXT : CF_UNICODETEXT; }
 
 protected :
     CPoint WordToRight (CPoint pt);
@@ -228,7 +227,7 @@ protected :
     CPoint m_ptDraggedTextBegin, m_ptDraggedTextEnd;
     void UpdateCaret ();
     void SetAnchor (const CPoint & ptNewAnchor);
-    int GetMarginWidth (CDC *pdc = NULL);
+    int GetMarginWidth (CDC *pdc = nullptr);
     bool IsValidTextPos (const CPoint &point);
     bool IsValidTextPosX (const CPoint &point);
     bool IsValidTextPosY (const CPoint &point);
@@ -387,7 +386,7 @@ protected :
 	int SubLineHomeToCharPos( int nLineIndex, int nSubLineOffset );
 	//END SW
     int GetCharWidth ();
-    int GetMaxLineLength ();
+    int GetMaxLineLength (int nTopLine, int nLines);
     int GetScreenLines ();
     int GetScreenChars ();
     CFont *GetFont (bool bItalic = false, bool bBold = false);
@@ -478,14 +477,29 @@ protected:
     virtual void DrawMargin (CDC * pdc, const CRect & rect, int nLineIndex, int nLineNumber);
     virtual void DrawBoundaryLine (CDC * pdc, int nLeft, int nRight, int y);
     virtual void DrawLineCursor (CDC * pdc, int nLeft, int nRight, int y, int nHeight);
-    int GetCharWidthFromChar(TCHAR ch);
-    int GetCharWidthFromString(LPCTSTR lpsz);
-    int GetCharWidthFromDisplayableChar(const ViewableWhitespaceChars * lpspc, TCHAR ch);
+
+	inline int GetCharCellCountFromChar(TCHAR ch)
+	{
+		if (ch >= _T('\x00') && ch <= _T('\x7F'))
+		{
+			if (ch <= _T('\x1F') && ch != '\t')
+				return 3;
+			else
+				return 1;
+		} 
+		// This assumes a fixed width font
+		// But the UNICODE case handles double-wide glyphs (primarily Chinese characters)
+#ifdef _UNICODE
+		return GetCharCellCountUnicodeChar(ch);
+#else
+		return 1;
+#endif
+	}
 
 #ifdef _UNICODE
     bool m_bChWidthsCalculated[65536/256];
     int m_iChDoubleWidthFlags[65536/32];
-    int GetCharWidthUnicodeChar(wchar_t ch);
+    int GetCharCellCountUnicodeChar(wchar_t ch);
 #endif
     void ResetCharWidths();
 
@@ -508,7 +522,7 @@ protected:
 	not exceed (except whitespaces)
 
 	@param anBreaks An array of integers. Put the positions where to wrap the line
-	in that array (its allready allocated). If this pointer is NULL, the function
+	in that array (its allready allocated). If this pointer is `nullptr`, the function
 	has only to compute the number of breaks (the parameter nBreaks).
 
 	@param nBreaks The number of breaks this line has (number of sublines - 1). When
@@ -526,7 +540,7 @@ protected:
 	method). This function uses an internal cache which contains the number
 	of sublines for each line, so it has only to call WrapLine(), if the
 	cache for the given line is invalid or if the caller wants to get the
-	wrap postions (anBreaks != NULL).
+	wrap postions (anBreaks != nullptr).
 
 	This functions also tests m_bWordWrap -- you can call it even if
 	word wrapping is disabled and you will retrieve a valid value.
@@ -537,7 +551,7 @@ protected:
 	not exceed (except whitespaces)
 
 	@param anBreaks An array of integers. Put the positions where to wrap the line
-	in that array (its allready allocated). If this pointer is NULL, the function
+	in that array (its allready allocated). If this pointer is `nullptr`, the function
 	has only to compute the number of breaks (the parameter nBreaks).
 
 	@param nBreaks The number of breaks this line has (number of sublines - 1). When
@@ -711,12 +725,14 @@ public :
 	bool GetWordWrapping() const;
 	virtual void SetWordWrapping( bool bWordWrap );
 
+	virtual void CopyProperties(CCrystalTextView *pSource);
+
 	/**
 	Sets the Parser to use to parse the file.
 
-	@param pParser Pointer to parser to use. Set to NULL to use no parser.
+	@param pParser Pointer to parser to use. Set to `nullptr` to use no parser.
 
-	@return Pointer to parser used before or NULL, if no parser has been used before.
+	@return Pointer to parser used before or `nullptr`, if no parser has been used before.
 	*/
 	CCrystalParser *SetParser( CCrystalParser *pParser );
 	//END SW
@@ -820,8 +836,8 @@ public :
 
     // Operations
 public :
-    virtual void ReAttachToBuffer (CCrystalTextBuffer * pBuf = NULL);
-    virtual void AttachToBuffer (CCrystalTextBuffer * pBuf = NULL);
+    virtual void ReAttachToBuffer (CCrystalTextBuffer * pBuf = nullptr);
+    virtual void AttachToBuffer (CCrystalTextBuffer * pBuf = nullptr);
     virtual void DetachFromBuffer ();
 
     //  Buffer-view interaction, multiple views
@@ -833,6 +849,7 @@ public :
     virtual void SetCursorPos (const CPoint & ptCursorPos);
     void ShowCursor ();
     void HideCursor ();
+	CPoint GetAnchor() const { return m_ptAnchor; }
     void SetNewAnchor (const CPoint & ptNewAnchor) { SetAnchor(ptNewAnchor); }
     void SetNewSelection (const CPoint & ptStart, const CPoint & ptEnd, bool bUpdateView = true) { SetSelection(ptStart, ptEnd, bUpdateView); }
 
@@ -863,7 +880,7 @@ public :
 
     virtual BOOL PreCreateWindow (CREATESTRUCT & cs);
     virtual BOOL PreTranslateMessage (MSG * pMsg);
-    virtual void OnPrepareDC (CDC * pDC, CPrintInfo * pInfo = NULL);
+    virtual void OnPrepareDC (CDC * pDC, CPrintInfo * pInfo = nullptr);
     virtual BOOL OnCmdMsg(UINT nID, int nCode, void* pExtra, AFX_CMDHANDLERINFO *pHandlerInfo);
 protected :
     virtual void OnInitialUpdate ();  // called first time after construct
@@ -904,7 +921,6 @@ protected :
     afx_msg void OnEditCopy ();
     afx_msg void OnUpdateEditCopy (CCmdUI * pCmdUI);
     afx_msg void OnEditSelectAll ();
-    afx_msg void OnUpdateEditSelectAll (CCmdUI * pCmdUI);
     afx_msg void OnRButtonDown (UINT nFlags, CPoint point);
     afx_msg void OnSysColorChange ();
     afx_msg int OnCreate (LPCREATESTRUCT lpCreateStruct);
@@ -913,7 +929,7 @@ protected :
     afx_msg void OnUpdateEditRepeat (CCmdUI * pCmdUI);
     afx_msg void OnEditMark ();
     afx_msg void OnEditDeleteBack();
-    afx_msg void OnChar( UINT nChar, UINT nRepCnt, UINT nFlags );
+    afx_msg void OnChar( wchar_t nChar, UINT nRepCnt, UINT nFlags );
 
     afx_msg BOOL OnMouseWheel (UINT nFlags, short zDelta, CPoint pt);
 	LRESULT OnImeStartComposition(WPARAM wParam, LPARAM lParam);

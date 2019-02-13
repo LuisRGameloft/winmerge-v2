@@ -37,11 +37,11 @@ void DirCompProgressBar::ClearStat()
  * @param [in] pParent Parent window for progress dialog.
  */
 DirCompProgressBar::DirCompProgressBar()
-: m_bCompareReady(FALSE)
+: m_bCompareReady(false)
 , m_prevState(CompareStats::STATE_IDLE)
-, m_pCompareStats(NULL)
+, m_pCompareStats(nullptr)
 #ifdef __ITaskbarList3_INTERFACE_DEFINED__
-, m_pTaskbarList(NULL)
+, m_pTaskbarList(nullptr)
 #endif
 {
 }
@@ -49,7 +49,7 @@ DirCompProgressBar::DirCompProgressBar()
 DirCompProgressBar::~DirCompProgressBar()
 {
 #ifdef __ITaskbarList3_INTERFACE_DEFINED__
-	if (m_pTaskbarList)
+	if (m_pTaskbarList != nullptr)
 	{
 		m_pTaskbarList->SetProgressState(AfxGetMainWnd()->m_hWnd, TBPF_NOPROGRESS);
 		m_pTaskbarList->Release();
@@ -78,8 +78,8 @@ BOOL DirCompProgressBar::Create(CWnd* pParentWnd)
 		return FALSE; 
 
 #ifdef __ITaskbarList3_INTERFACE_DEFINED__
-	CoCreateInstance(CLSID_TaskbarList, NULL, CLSCTX_ALL, IID_ITaskbarList3, (void**)&m_pTaskbarList);
-	if (m_pTaskbarList)
+	CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_ALL, IID_ITaskbarList3, (void**)&m_pTaskbarList);
+	if (m_pTaskbarList != nullptr)
 		m_pTaskbarList->SetProgressState(AfxGetMainWnd()->m_hWnd, TBPF_INDETERMINATE);
 #endif
 
@@ -105,7 +105,7 @@ void DirCompProgressBar::SetProgressState(int comparedItems, int totalItems)
 	pProg->SetRange32(0, totalItems);
 
 #ifdef __ITaskbarList3_INTERFACE_DEFINED__
-	if (m_pTaskbarList)
+	if (m_pTaskbarList != nullptr)
 		m_pTaskbarList->SetProgressValue(AfxGetMainWnd()->m_hWnd, comparedItems, totalItems);
 #endif
 }
@@ -147,19 +147,20 @@ void DirCompProgressBar::OnTimer(UINT_PTR nIDEvent)
 				state == CompareStats::STATE_COMPARE)
 		{
 			SetProgressState(m_pCompareStats->GetComparedItems(), m_pCompareStats->GetTotalItems());
-			if (const DIFFITEM *pdi = m_pCompareStats->GetCurDiffItem())
+			const DIFFITEM *pdi = m_pCompareStats->GetCurDiffItem();
+			if (pdi != nullptr)
 				SetDlgItemText(IDC_PATH_COMPARING, pdi->diffFileInfo[0].GetFile());
 		}
 		// Compare is ready
 		// Update total items too since we might get only this one state
 		// when compare is fast.
 		else if (state == CompareStats::STATE_IDLE &&
-			m_bCompareReady == FALSE && m_pCompareStats->IsCompareDone() )
+			!m_bCompareReady && m_pCompareStats->IsCompareDone() )
 		{
 			SetProgressState(m_pCompareStats->GetComparedItems(), m_pCompareStats->GetTotalItems());
 			EndUpdating();
 			m_prevState = CompareStats::STATE_COMPARE;
-			m_bCompareReady = TRUE;
+			m_bCompareReady = true;
 		}
 	}
 	else
@@ -172,7 +173,7 @@ void DirCompProgressBar::OnTimer(UINT_PTR nIDEvent)
 void DirCompProgressBar::StartUpdating()
 {
 	ClearStat();
-	SetTimer(IDT_UPDATE, UPDATE_INTERVAL, NULL);
+	SetTimer(IDT_UPDATE, UPDATE_INTERVAL, nullptr);
 }
 
 /**

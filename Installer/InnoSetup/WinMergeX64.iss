@@ -142,11 +142,12 @@ Name: Hungarian; MessagesFile: ..\..\Translations\InnoSetup\Hungarian.isl
 Name: Italian; MessagesFile: ..\..\Translations\InnoSetup\Italian.isl
 Name: Japanese; MessagesFile: ..\..\Translations\InnoSetup\Japanese.isl; InfoAfterFile: ..\..\Translations\Docs\Readme\ReadMe-Japanese.txt
 Name: Korean; MessagesFile: ..\..\Translations\InnoSetup\Korean.isl
+Name: Lithuanian; MessagesFile: ..\..\Translations\InnoSetup\Lithuanian.isl
 Name: Norwegian; MessagesFile: ..\..\Translations\InnoSetup\Norwegian.isl
 Name: Persian; MessagesFile: ..\..\Translations\InnoSetup\Persian.isl
 Name: Polish; MessagesFile: ..\..\Translations\InnoSetup\Polish.isl
 Name: Portuguese; MessagesFile: ..\..\Translations\InnoSetup\Portuguese.isl; InfoAfterFile: ..\..\Translations\Docs\Readme\ReadMe-Portuguese.txt
-Name: PortugueseBrazilian; MessagesFile: ..\..\Translations\InnoSetup\Brazilian_Portuguese.isl; InfoAfterFile: ..\..\Translations\Docs\Readme\ReadMe-Brazilian.txt
+Name: PortugueseBrazilian; MessagesFile: ..\..\Translations\InnoSetup\Brazilian.isl; InfoAfterFile: ..\..\Translations\Docs\Readme\ReadMe-Brazilian.txt
 Name: Romanian; MessagesFile: ..\..\Translations\InnoSetup\Romanian.isl; InfoAfterFile: ..\..\Translations\Docs\Readme\ReadMe-Romanian.txt
 Name: Russian; MessagesFile: ..\..\Translations\InnoSetup\Russian.isl
 Name: Serbian; MessagesFile: ..\..\Translations\InnoSetup\Serbian.isl; InfoAfterFile: ..\..\Translations\Docs\Readme\ReadMe-Serbian.txt
@@ -241,6 +242,9 @@ Name: Languages\Japanese; Description: {cm:JapaneseLanguage}; Flags: disablenoun
 Name: Languages\Korean; Description: {cm:KoreanLanguage}; Flags: disablenouninstallwarning; Types: full; Languages: not Korean
 Name: Languages\Korean; Description: {cm:KoreanLanguage}; Flags: disablenouninstallwarning; Types: full typical compact; Languages: Korean
 
+Name: Languages\Lithuanian; Description: {cm:LithuanianLanguage}; Flags: disablenouninstallwarning; Types: full; Languages: not Lithuanian
+Name: Languages\Lithuanian; Description: {cm:LithuanianLanguage}; Flags: disablenouninstallwarning; Types: full typical compact; Languages: Lithuanian
+
 Name: Languages\Norwegian; Description: {cm:NorwegianLanguage}; Flags: disablenouninstallwarning; Types: full; Languages: not Norwegian
 Name: Languages\Norwegian; Description: {cm:NorwegianLanguage}; Flags: disablenouninstallwarning; Types: full typical compact; Languages: Norwegian
 
@@ -293,7 +297,6 @@ Name: modifypath; Description: {cm:AddToPath}; GroupDescription: {cm:OptionalFea
 Name: TortoiseCVS; Description: {cm:IntegrateTortoiseCVS}; GroupDescription: {cm:OptionalFeatures}; Check: TortoiseCVSInstalled
 Name: TortoiseGit; Description: {cm:IntegrateTortoiseGit}; GroupDescription: {cm:OptionalFeatures}; Check: TortoiseGitInstalled; MinVersion: 0,5.0.2195sp3
 Name: TortoiseSVN; Description: {cm:IntegrateTortoiseSVN}; GroupDescription: {cm:OptionalFeatures}; Check: TortoiseSVNInstalled; MinVersion: 0,5.0.2195sp3
-Name: ClearCase; Description: {cm:IntegrateClearCase}; GroupDescription: {cm:OptionalFeatures}; Check: ClearCaseInstalled
 Name: desktopicon; Description: {cm:CreateDesktopIcon}; GroupDescription: {cm:AdditionalIcons}; Flags: unchecked
 Name: quicklaunchicon; Description: {cm:CreateQuickLaunchIcon}; GroupDescription: {cm:AdditionalIcons}; OnlyBelowVersion: 0,6.1
 
@@ -411,13 +414,10 @@ Source: ..\..\Build\ShellExtension\ShellExtensionU.dll; DestDir: {app}; Flags: r
 Source: ..\..\Build\ShellExtension\ShellExtensionX64.dll; DestDir: {app}; Flags: regserver uninsrestartdelete restartreplace promptifolder 64bit; MinVersion: 0,5.01.2600; Check: IsWin64
 
 ;Please do not reorder the 7z Dlls by version they compress better ordered by platform and then by version
-Source: ..\..\Build\X64\Merge7z\Merge7z1604U.dll; DestDir: {app}\Merge7z; Flags: promptifolder; MinVersion: 0, 4; Components: ArchiveSupport
+Source: ..\..\Build\X64\Merge7z\Merge7z1806U.dll; DestDir: {app}\Merge7z; Flags: promptifolder; MinVersion: 0, 4; Components: ArchiveSupport
 Source: ..\..\Build\X64\Merge7z\7z.dll; DestDir: {app}\Merge7z; Flags: promptifolder; MinVersion: 0, 4; Components: ArchiveSupport
 Source: ..\..\Build\X64\Merge7z\*.txt; DestDir: {app}\Merge7z; Flags: promptifolder; MinVersion: 0, 4; Components: ArchiveSupport
 Source: ..\..\Build\X64\Merge7z\Lang\*.txt; DestDir: {app}\Merge7z\Lang; Flags: promptifolder; MinVersion: 0, 4; Components: ArchiveSupport
-
-; MergeLang.dll - translation helper dll
-Source: ..\..\Build\X64\MergeUnicodeRelease\MergeLang.dll; DestDir: {app}; Flags: promptifolder ignoreversion; Components: Core
 
 ; Language files
 Source: ..\..\Translations\WinMerge\Basque.po; DestDir: {app}\Languages; Components: Languages\Basque; Flags: ignoreversion comparetimestamp
@@ -452,6 +452,7 @@ Source: ..\..\Translations\WinMerge\Italian.po; DestDir: {app}\Languages; Compon
 Source: ..\..\Translations\WinMerge\Japanese.po; DestDir: {app}\Languages; Components: Languages\Japanese; Flags: ignoreversion comparetimestamp
 Source: ..\..\Translations\Docs\Readme\ReadMe-Japanese.txt; DestDir: {app}\Docs; Components: Languages\Japanese
 Source: ..\..\Translations\WinMerge\Korean.po; DestDir: {app}\Languages; Components: Languages\Korean; Flags: ignoreversion comparetimestamp
+Source: ..\..\Translations\Docs\Readme\ReadMe-Lithuanian.txt; DestDir: {app}\Docs; Components: Languages\Lithuanian
 Source: ..\..\Translations\WinMerge\Norwegian.po; DestDir: {app}\Languages; Components: Languages\Norwegian; Flags: ignoreversion comparetimestamp
 Source: ..\..\Translations\WinMerge\Persian.po; DestDir: {app}\Languages; Components: Languages\Persian; Flags: ignoreversion comparetimestamp
 Source: ..\..\Translations\WinMerge\Polish.po; DestDir: {app}\Languages; Components: Languages\Polish; Flags: ignoreversion comparetimestamp
@@ -651,6 +652,7 @@ Root: HKLM; SubKey: Software\Thingamahoochie\WinMerge\Locale; ValueType: dword; 
 Root: HKLM; SubKey: Software\Thingamahoochie\WinMerge\Locale; ValueType: dword; ValueName: LanguageId; ValueData: $00000410; Flags: deletevalue; Languages: Italian
 Root: HKLM; SubKey: Software\Thingamahoochie\WinMerge\Locale; ValueType: dword; ValueName: LanguageId; ValueData: $00000411; Flags: deletevalue; Languages: Japanese
 Root: HKLM; SubKey: Software\Thingamahoochie\WinMerge\Locale; ValueType: dword; ValueName: LanguageId; ValueData: $00000412; Flags: deletevalue; Languages: Korean
+Root: HKLM; SubKey: Software\Thingamahoochie\WinMerge\Locale; ValueType: dword; ValueName: LanguageId; ValueData: $00000427; Flags: deletevalue; Languages: Lithuanian 
 Root: HKLM; SubKey: Software\Thingamahoochie\WinMerge\Locale; ValueType: dword; ValueName: LanguageId; ValueData: $00000414; Flags: deletevalue; Languages: Norwegian
 Root: HKLM; SubKey: Software\Thingamahoochie\WinMerge\Locale; ValueType: dword; ValueName: LanguageId; ValueData: $00000429; Flags: deletevalue; Languages: Persian
 Root: HKLM; SubKey: Software\Thingamahoochie\WinMerge\Locale; ValueType: dword; ValueName: LanguageId; ValueData: $00000415; Flags: deletevalue; Languages: Polish
@@ -989,7 +991,6 @@ Var
         strOld: string;
         strNew: string;
         strMessage: string;
-        strShortcut: string;
 Begin
     {Detects the previous start menu group's path, if any}
     strOld := OldGroup();
@@ -1070,58 +1071,6 @@ Begin
     Result := ExpandConstant('{app}\') + ExeName(Unused);
 End;
 
-{Returns ClearCase external tools configuration file name}
-Function ClearCaseMapFile(): string;
-Begin
-    if not RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\Rational Software\', 'RSINSTALLDIR', Result) then
-    begin
-        Result := {pf} + '\Rational\';
-    end;
-    Result := Result + 'ClearCase\lib\mgrs\map';
-End;
-
-{Determines whether or not Rational ClearCase is installed}
-Function ClearCaseInstalled(): boolean;
-Begin
-    Result := FileExists(ClearCaseMapFile());
-End;
-
-{Intergrate WinMerge as ClearCase external diff tool}
-Procedure IntegrateClearCase(OldExe: String; NewExe: String);
-Var
-    MapFile: TStringList;
-    FileName: String;
-    I: Integer;
-    BakFile: String;
-
-Begin
-    FileName := ClearCaseMapFile();
-    {Create a backup file of the original file first time it gets modified}
-    BakFile := FileName + '.original';
-    if not FileExists(BakFile) then
-    begin
-        FileCopy(FileName, BakFile, True);
-    end;
-    MapFile := TStringList.Create();
-    {Read the entire map file to a string list}
-    MapFile.LoadFromFile(FileName);
-    if MapFile.Count > 0 then
-    begin
-        for I := 0 to MapFile.Count do
-        begin
-            {Search for the 'text_file_delta xcompare ...' line}
-			if (MapFile.Strings[I][1] <> ';') and (Pos('text_file_delta', MapFile.Strings[I]) > 0) and (Pos('xcompare', MapFile.Strings[I]) > 0) then
-			begin
-				{Replace old executable name with a new executable name}
-				MapFile.Strings[I] := ReplaceSubString(MapFile.Strings[I], OldExe, NewExe);
-			    break;
-			end;
-		end;
-		{ Save the modified file. }
-		MapFile.SaveToFile(FileName);
-	end;
-End;
-
 // Add WinMerge to system path.
 // This requires certain order of things to work:
 // #1 ModPathDir function must be first (it gets called by others)
@@ -1176,10 +1125,6 @@ Begin
     begin
 		if IsTaskSelected('modifypath') then
 			ModPath();
-        if IsTaskSelected('ClearCase') then
-        begin
-            IntegrateClearCase('..\..\bin\cleardiffmrg.exe', WinMergeExeName());
-        end;
     end;
 End;
 
@@ -1195,12 +1140,6 @@ Begin
 				ModPath();
 		DeleteFile(appdir + '\uninsTasks.txt')
 	end;
-
-    if CurUninstallStep = usPostUninstall then
-    begin
-      if ClearCaseInstalled() then
-        IntegrateClearCase(WinMergeExeName(), '..\..\bin\cleardiffmrg.exe');
-    end;
 End;
 
 function BooleanToString(Value : Boolean) : String; 

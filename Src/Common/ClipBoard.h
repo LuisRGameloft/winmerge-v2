@@ -8,7 +8,7 @@
 #include <windows.h>
 #include "UnicodeString.h"
 
-inline UINT GetClipTcharTextFormat() { return (sizeof(TCHAR) == 1 ? CF_TEXT : CF_UNICODETEXT); }
+inline CLIPFORMAT GetClipTcharTextFormat() { return (sizeof(TCHAR) == 1 ? CF_TEXT : CF_UNICODETEXT); }
 
 bool PutToClipboard(const String & text, HWND currentWindowHandle);
 bool GetFromClipboard(String & text, HWND currentWindowHandle);
@@ -17,8 +17,8 @@ template<class Container>
 void PutFilesToClipboard(const Container& list, HWND currentWindowHandle)
 {
 	String strPaths, strPathsSepSpc;
-	strPaths.reserve(list.size() * MAX_PATH);
-	strPathsSepSpc.reserve(list.size() * MAX_PATH);
+	strPaths.reserve(list.size() * MAX_PATH_FULL);
+	strPathsSepSpc.reserve(list.size() * MAX_PATH_FULL);
 
 	for (Container::const_iterator it = list.begin(); it != list.end(); ++it)
 	{
@@ -37,7 +37,7 @@ void PutFilesToClipboard(const Container& list, HWND currentWindowHandle)
 
 	// CF_HDROP
 	HGLOBAL hDrop = GlobalAlloc(GHND, sizeof(DROPFILES) + sizeof(TCHAR) * strPaths.length());
-	if (!hDrop)
+	if (hDrop == nullptr)
 		return;
 	if (TCHAR *pDrop = static_cast<TCHAR *>(GlobalLock(hDrop)))
 	{
@@ -51,7 +51,7 @@ void PutFilesToClipboard(const Container& list, HWND currentWindowHandle)
 
 	// CF_DROPEFFECT
 	HGLOBAL hDropEffect = GlobalAlloc(GHND, sizeof(DWORD));
-	if (!hDropEffect)
+	if (hDropEffect == nullptr)
 	{
 		GlobalFree(hDrop);
 		return;
@@ -64,7 +64,7 @@ void PutFilesToClipboard(const Container& list, HWND currentWindowHandle)
 
 	// CF_UNICODETEXT
 	HGLOBAL hPathnames = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, sizeof(TCHAR) * (strPathsSepSpc.length() + 1));
-	if (!hPathnames)
+	if (hPathnames == nullptr)
 	{
 		GlobalFree(hDrop);
 		GlobalFree(hDropEffect);

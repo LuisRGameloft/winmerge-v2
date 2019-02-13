@@ -26,11 +26,11 @@ void InitializeLogFont(LOGFONT &logfont, int lfHeight, int lfCharSet, int lfPitc
 	logfont.lfItalic = false;
 	logfont.lfUnderline = false;
 	logfont.lfStrikeOut = false;
-	logfont.lfCharSet = lfCharSet;
+	logfont.lfCharSet = static_cast<BYTE>(lfCharSet);
 	logfont.lfOutPrecision = OUT_STRING_PRECIS;
 	logfont.lfClipPrecision = CLIP_STROKE_PRECIS;
 	logfont.lfQuality = DRAFT_QUALITY;
-	logfont.lfPitchAndFamily = lfPitchAndFamily;
+	logfont.lfPitchAndFamily = static_cast<BYTE>(lfPitchAndFamily);
 	lstrcpyn(logfont.lfFaceName, lfFaceName.c_str(), (sizeof(logfont.lfFaceName)/sizeof(logfont.lfFaceName[0])) );
 }
 
@@ -40,7 +40,7 @@ void InitializeLogFont(LOGFONT &logfont, int lfHeight, int lfCharSet, int lfPitc
  */
 void SetDefaults(COptionsMgr *pOptionsMgr)
 {
-	HDC hDC = GetDC(NULL);
+	HDC hDC = GetDC(nullptr);
 	const int logPixelsY = GetDeviceCaps(hDC, LOGPIXELSY);
 
 	// *****
@@ -53,7 +53,7 @@ void SetDefaults(COptionsMgr *pOptionsMgr)
 
 	CodePageInfo cpi = {0};
 	IExconverter *pexconv = Exconverter::getInstance();
-	if (pexconv==NULL || !pexconv->getCodePageInfo(GetACP(), &cpi))
+	if (pexconv==nullptr || !pexconv->getCodePageInfo(GetACP(), &cpi))
 	{
 		assert(false);	// this should never fail (???)
 		cpi.bGDICharset = ANSI_CHARSET;
@@ -110,7 +110,7 @@ void SetDefaults(COptionsMgr *pOptionsMgr)
 		pOptionsMgr->InitOption(name + OPT_FONT_PITCHANDFAMILY, thisFont.lfPitchAndFamily);
 		pOptionsMgr->InitOption(name + OPT_FONT_FACENAME, ucr::toTString(thisFont.lfFaceName));
 	}
-	ReleaseDC(NULL, hDC);
+	ReleaseDC(nullptr, hDC);
 }
 
 LOGFONT Load(const COptionsMgr *pOptionsMgr, const String& name)
@@ -118,7 +118,7 @@ LOGFONT Load(const COptionsMgr *pOptionsMgr, const String& name)
 	// Build a new LOGFONT with values from the 'actual' values of the in-memory Options::Font table.
 	// The Registry is not accessed.
 	LOGFONT lfnew = { 0 };
-	HDC hDC = GetDC(NULL);
+	HDC hDC = GetDC(nullptr);
 	lfnew.lfHeight = -MulDiv(pOptionsMgr->GetInt(name + OPT_FONT_POINTSIZE), GetDeviceCaps(hDC, LOGPIXELSY), 72);
 	if (lfnew.lfHeight == 0)
 		lfnew.lfHeight = pOptionsMgr->GetInt(name + OPT_FONT_HEIGHT);
@@ -129,14 +129,14 @@ LOGFONT Load(const COptionsMgr *pOptionsMgr, const String& name)
 	lfnew.lfItalic = pOptionsMgr->GetBool(name + OPT_FONT_ITALIC);
 	lfnew.lfUnderline = pOptionsMgr->GetBool(name + OPT_FONT_UNDERLINE);
 	lfnew.lfStrikeOut = pOptionsMgr->GetBool(name + OPT_FONT_STRIKEOUT);
-	lfnew.lfCharSet = pOptionsMgr->GetInt(name + OPT_FONT_CHARSET);
-	lfnew.lfOutPrecision = pOptionsMgr->GetInt(name + OPT_FONT_OUTPRECISION);
-	lfnew.lfClipPrecision = pOptionsMgr->GetInt(name + OPT_FONT_CLIPPRECISION);
-	lfnew.lfQuality = pOptionsMgr->GetInt(name + OPT_FONT_QUALITY);
-	lfnew.lfPitchAndFamily = pOptionsMgr->GetInt(name + OPT_FONT_PITCHANDFAMILY);
+	lfnew.lfCharSet = static_cast<BYTE>(pOptionsMgr->GetInt(name + OPT_FONT_CHARSET));
+	lfnew.lfOutPrecision = static_cast<BYTE>(pOptionsMgr->GetInt(name + OPT_FONT_OUTPRECISION));
+	lfnew.lfClipPrecision = static_cast<BYTE>(pOptionsMgr->GetInt(name + OPT_FONT_CLIPPRECISION));
+	lfnew.lfQuality = static_cast<BYTE>(pOptionsMgr->GetInt(name + OPT_FONT_QUALITY));
+	lfnew.lfPitchAndFamily = static_cast<BYTE>(pOptionsMgr->GetInt(name + OPT_FONT_PITCHANDFAMILY));
 	lstrcpyn(lfnew.lfFaceName,
 		pOptionsMgr->GetString(name + OPT_FONT_FACENAME).c_str(), sizeof(lfnew.lfFaceName)/sizeof(lfnew.lfFaceName[0]));
-	ReleaseDC(NULL, hDC);
+	ReleaseDC(nullptr, hDC);
 	return lfnew;
 }
 
@@ -144,7 +144,7 @@ void Save(COptionsMgr *pOptionsMgr, const String& name, const LOGFONT* lf, bool 
 {
 	// Store LOGFONT values into both the 'actual' value of the in-memory Options::Font table, and 
 	// into the appropriate Registry entries.
-	HDC hDC = GetDC(NULL);
+	HDC hDC = GetDC(nullptr);
 	pOptionsMgr->SaveOption(name + OPT_FONT_USECUSTOM, bUseCustom);
 	pOptionsMgr->SaveOption(name + OPT_FONT_POINTSIZE, -MulDiv(lf->lfHeight, 72, GetDeviceCaps(hDC, LOGPIXELSY)));
 	pOptionsMgr->SaveOption(name + OPT_FONT_HEIGHT, lf->lfHeight);
@@ -160,7 +160,7 @@ void Save(COptionsMgr *pOptionsMgr, const String& name, const LOGFONT* lf, bool 
 	pOptionsMgr->SaveOption(name + OPT_FONT_QUALITY, lf->lfQuality);
 	pOptionsMgr->SaveOption(name + OPT_FONT_PITCHANDFAMILY, (int)lf->lfPitchAndFamily);
 	pOptionsMgr->SaveOption(name + OPT_FONT_FACENAME, lf->lfFaceName);
-	ReleaseDC(NULL, hDC);
+	ReleaseDC(nullptr, hDC);
 }
 
 void Reset(COptionsMgr *pOptionsMgr, const String& name)

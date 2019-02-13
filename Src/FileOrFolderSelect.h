@@ -27,12 +27,12 @@
 
 #include "UnicodeString.h"
 
-BOOL SelectFile(HWND parent, String& path, LPCTSTR initialPath = NULL, 
-			 const String& stitle = _T(""), const String& sfilter = _T(""),
-			 BOOL is_open =TRUE, LPCTSTR defaultExtension = NULL);
+bool SelectFile(HWND parent, String& path, bool is_open = true,
+			LPCTSTR initialPath = nullptr, const String& stitle = _T(""),
+			const String& sfilter = _T(""), LPCTSTR defaultExtension = nullptr);
 
-BOOL SelectFolder(String& path, LPCTSTR root_path = NULL, 
+bool SelectFolder(String& path, LPCTSTR root_path = nullptr, 
 			 const String& title = _T(""),
-			 HWND hwndOwner = NULL);
+			 HWND hwndOwner = nullptr);
 
-BOOL SelectFileOrFolder(HWND parent, String& path, LPCTSTR root_path = NULL);
+bool SelectFileOrFolder(HWND parent, String& path, LPCTSTR root_path = nullptr);

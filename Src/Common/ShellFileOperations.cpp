@@ -23,9 +23,8 @@
 #include "ShellFileOperations.h"
 #include <windows.h>
 #include <tchar.h>
-#include <shlwapi.h>
 #include <vector>
-#include <shellapi.h>
+#include <shellAPI.h>
 #include "UnicodeString.h"
 
 using std::vector;
@@ -37,7 +36,7 @@ ShellFileOperations::ShellFileOperations()
  : m_bOneToOneMapping(false)
  , m_function(0)
  , m_flags(0)
- , m_parentWindow(NULL)
+ , m_parentWindow(nullptr)
  , m_isCanceled(false)
 {
 }
@@ -106,7 +105,7 @@ void ShellFileOperations::GetPathList(bool source, vector<TCHAR>& paths) const
 		const size_t slen = (*iter).length();
 		memcpy(&paths[ind], (*iter).c_str(), slen * sizeof(TCHAR));
 		ind += slen;
-		ind++; // NULL between strings
+		ind++; // NUL between strings
 		++iter;
 	}
 }
@@ -136,7 +135,7 @@ size_t ShellFileOperations::CountStringSize(bool source) const
 	while (iter != end)
 	{
 		size += (*iter).length() * sizeof(TCHAR);
-		size += sizeof(TCHAR); // NULL between strings
+		size += sizeof(TCHAR); // NUL between strings
 		++iter;
 	}
 	size += 2; // Two zeros at end of the string
@@ -150,7 +149,7 @@ size_t ShellFileOperations::CountStringSize(bool source) const
  * @param [in] parentWindow Window getting notifications.
  */
 void ShellFileOperations::SetOperation(UINT operation, FILEOP_FLAGS flags,
-		HWND parentWindow /*= NULL*/)
+		HWND parentWindow /*= nullptr*/)
 {
 	m_function = operation;
 	m_flags = flags;
@@ -173,16 +172,16 @@ bool ShellFileOperations::Run()
 		GetPathList(false, destStr);
 
 	SHFILEOPSTRUCT fileop = {m_parentWindow, m_function, &sourceStr[0], 
-		m_function != FO_DELETE ? &destStr[0] : NULL, m_flags, FALSE, 0, 0};
+		m_function != FO_DELETE ? &destStr[0] : nullptr, m_flags, FALSE, 0, 0};
 	int ret = SHFileOperation(&fileop);
 
 	if (ret == 0x75) // DE_OPCANCELLED
 		m_isCanceled = true;
 
-	BOOL anyAborted = fileop.fAnyOperationsAborted;
+	bool anyAborted = !!fileop.fAnyOperationsAborted;
 
 	// SHFileOperation returns 0 when succeeds
-	if (ret == 0 && anyAborted == FALSE)
+	if (ret == 0 && !anyAborted)
 		return true;
 	return false;
 }
@@ -204,7 +203,7 @@ void ShellFileOperations::Reset()
 	m_bOneToOneMapping = false;
 	m_function = 0;
 	m_flags = 0;
-	m_parentWindow = NULL;
+	m_parentWindow = nullptr;
 	m_isCanceled = false;
 
 	m_sources.clear();

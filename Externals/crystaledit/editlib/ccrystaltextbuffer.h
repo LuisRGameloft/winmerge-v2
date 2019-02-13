@@ -43,15 +43,15 @@
 #include <afxtempl.h>
 #endif
 
-enum LINEFLAGS
+enum LINEFLAGS: unsigned long
 {
-  LF_BOOKMARK_FIRST = 0x00000001L,
-  LF_EXECUTION = 0x00010000L,
-  LF_BREAKPOINT = 0x00020000L,
-  LF_COMPILATION_ERROR = 0x00040000L,
-  LF_BOOKMARKS = 0x00080000L,
-  LF_INVALID_BREAKPOINT = 0x00100000L,
-  LF_INVISIBLE = 0x80000000L
+  LF_BOOKMARK_FIRST = 0x00000001UL,
+  LF_EXECUTION = 0x00010000UL,
+  LF_BREAKPOINT = 0x00020000UL,
+  LF_COMPILATION_ERROR = 0x00040000UL,
+  LF_BOOKMARKS = 0x00080000UL,
+  LF_INVALID_BREAKPOINT = 0x00100000UL,
+  LF_INVISIBLE = 0x80000000UL
 };
 
 #define LF_BOOKMARK(id)     (LF_BOOKMARK_FIRST << id)
@@ -129,10 +129,10 @@ protected :
     int FindLineWithFlag (DWORD dwFlag) const;
 
 protected :
-    enum
+    enum : unsigned
     {
-      UNDO_INSERT = 0x0001,
-      UNDO_BEGINGROUP = 0x0100
+      UNDO_INSERT = 0x0001U,
+      UNDO_BEGINGROUP = 0x0100U
     };
 
 class EDITPADC_CLASS CInsertContext : public CUpdateContext
@@ -179,7 +179,7 @@ public :
 
     //  [JRT] Support For Descriptions On Undo/Redo Actions
     virtual void AddUndoRecord (bool bInsert, const CPoint & ptStartPos, const CPoint & ptEndPos,
-                                LPCTSTR pszText, size_t cchText, int nActionType = CE_ACTION_UNKNOWN, CDWordArray *paSavedRevisionNumbers = NULL);
+                                LPCTSTR pszText, size_t cchText, int nActionType = CE_ACTION_UNKNOWN, CDWordArray *paSavedRevisionNumbers = nullptr);
     virtual UndoRecord GetUndoRecord (int nUndoPos) const;
 
     virtual CDWordArray *CopyRevisionNumbers(int nStartLine, int nEndLine) const;
@@ -231,7 +231,7 @@ public :
     void SetLineFlag (int nLine, DWORD dwFlag, bool bSet,
             bool bRemoveFromPreviousLine = true, bool bUpdate=true);
     void GetText (int nStartLine, int nStartChar, int nEndLine, int nEndChar,
-            CString & text, LPCTSTR pszCRLF = NULL, bool bExcludeInvisibleLines = true) const;
+            CString & text, LPCTSTR pszCRLF = nullptr, bool bExcludeInvisibleLines = true) const;
     virtual void GetTextWithoutEmptys (int nStartLine, int nStartChar,
             int nEndLine, int nEndChar, CString &text,
             CRLFSTYLE nCrlfStyle = CRLF_STYLE_AUTOMATIC, bool bExcludeInvisibleLines = true) const;
@@ -249,14 +249,15 @@ public :
     void SetIgnoreEol(bool IgnoreEol) { m_IgnoreEol = IgnoreEol; }
 
     //  Text modification functions
-    virtual bool InsertText (CCrystalTextView * pSource, int nLine, int nPos, LPCTSTR pszText, size_t cchText, int &nEndLine, int &nEndChar, int nAction = CE_ACTION_UNKNOWN, bool bHistory =true);
-    virtual bool DeleteText (CCrystalTextView * pSource, int nStartLine, int nStartPos, int nEndLine, int nEndPos, int nAction = CE_ACTION_UNKNOWN, bool bHistory =true, bool bExcludeInvisibleLines = true);
-    virtual bool DeleteText2 (CCrystalTextView * pSource, int nStartLine, int nStartPos, int nEndLine, int nEndPos, int nAction = CE_ACTION_UNKNOWN, bool bHistory =true);
+    virtual bool InsertText (CCrystalTextView * pSource, int nLine, int nPos, LPCTSTR pszText, size_t cchText, int &nEndLine, int &nEndChar, int nAction = CE_ACTION_UNKNOWN, bool bHistory = true);
+    virtual bool DeleteText (CCrystalTextView * pSource, int nStartLine, int nStartPos, int nEndLine, int nEndPos, int nAction = CE_ACTION_UNKNOWN, bool bHistory = true, bool bExcludeInvisibleLines = true);
+    virtual bool DeleteText2 (CCrystalTextView * pSource, int nStartLine, int nStartPos, int nEndLine, int nEndPos, int nAction = CE_ACTION_UNKNOWN, bool bHistory = true);
 
     //  Undo/Redo
     bool CanUndo () const;
     bool CanRedo () const;
     virtual bool Undo (CCrystalTextView * pSource, CPoint & ptCursorPos);
+    virtual bool UndoInsert (CCrystalTextView * pSource, CPoint & ptCursorPos, const CPoint apparent_ptStartPos, CPoint const apparent_ptEndPos, const UndoRecord & ur);
     virtual bool Redo (CCrystalTextView * pSource, CPoint & ptCursorPos);
 
     //  Undo grouping
@@ -274,10 +275,10 @@ public :
 
 
     //  Browse undo sequence
-    POSITION GetUndoActionCode (int & nAction, POSITION pos = NULL) const;
-    POSITION GetRedoActionCode (int & nAction, POSITION pos = NULL) const;
-    POSITION GetUndoDescription (CString & desc, POSITION pos = NULL) const;
-    POSITION GetRedoDescription (CString & desc, POSITION pos = NULL) const;
+    POSITION GetUndoActionCode (int & nAction, POSITION pos = nullptr) const;
+    POSITION GetRedoActionCode (int & nAction, POSITION pos = nullptr) const;
+    POSITION GetUndoDescription (CString & desc, POSITION pos = nullptr) const;
+    POSITION GetRedoDescription (CString & desc, POSITION pos = nullptr) const;
 
     //  Notify all connected views about changes in name of file
     CCrystalTextView::TextDefinition *RetypeViews (LPCTSTR lpszFileName);

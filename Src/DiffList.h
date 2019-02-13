@@ -166,11 +166,11 @@ public:
 
 	void ConstructSignificantChain(); // must be called after diff list is entirely populated
 	void Swap(int index1, int index2);
-	void GetExtraLinesCounts(int nFiles, int extras[]);
+	void GetExtraLinesCounts(int nFiles, int extras[3]);
 
 	std::vector<DiffRangeInfo>& GetDiffRangeInfoVector() { return m_diffs; }
 
-	void AppendDiffList(const DiffList& list, int offset[] = NULL, int doffset = 0);
+	void AppendDiffList(const DiffList& list, int offset[] = nullptr, int doffset = 0);
 
 private:
 	std::vector<DiffRangeInfo> m_diffs; /**< Difference list. */

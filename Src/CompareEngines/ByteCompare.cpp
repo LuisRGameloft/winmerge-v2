@@ -6,13 +6,7 @@
 
 #include "ByteCompare.h"
 #include <cassert>
-#include <cstdint>
-#ifdef _WIN32
 #include <io.h>
-#else
-#include <sys/types.h>
-#include <unistd.h>
-#endif
 #include "FileLocation.h"
 #include "UnicodeString.h"
 #include "IAbortable.h"
@@ -56,7 +50,7 @@ ByteCompare::~ByteCompare()
 bool ByteCompare::SetCompareOptions(const CompareOptions & options)
 {
 	m_pOptions.reset(new QuickCompareOptions(options));
-	if (m_pOptions.get() == NULL)
+	if (m_pOptions.get() == nullptr)
 		return false;
 	return true;
 }
@@ -132,7 +126,7 @@ int ByteCompare::CompareFiles(FileLocation *location)
 	// and continue
 	while (!eof[0] || !eof[1])
 	{
-		if (m_piAbortable && m_piAbortable->ShouldAbort())
+		if (m_piAbortable != nullptr && m_piAbortable->ShouldAbort())
 			return DIFFCODE::CMPABORT;
 
 		// load or update buffers as appropriate
@@ -251,6 +245,10 @@ int ByteCompare::CompareFiles(FileLocation *location)
 					bfend[1] += l;
 				}
 			}
+		}
+		else
+		{
+			assert(result == ByteComparator::RESULT_SAME);
 		}
 
 		// Did we finish both files?

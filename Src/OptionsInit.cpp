@@ -12,18 +12,15 @@
 #include "OptionsDiffColors.h"
 #include "OptionsFont.h"
 #include "DiffWrapper.h" // CMP_CONTENT
-#include "SourceControl.h"
 #include "paths.h"
 #include "Environment.h"
 #include "Constants.h"
 
 // Functions to copy values set by installer from HKLM to HKCU.
 static void CopyHKLMValues();
-static bool OpenHKLM(HKEY *key, LPCTSTR relpath = NULL);
-static bool OpenHKCU(HKEY *key, LPCTSTR relpath = NULL);
-static bool IsFirstRun(HKEY key);
+static bool OpenHKLM(HKEY *key, LPCTSTR relpath = nullptr);
+static bool OpenHKCU(HKEY *key, LPCTSTR relpath = nullptr);
 static void CopyFromLMtoCU(HKEY lmKey, HKEY cuKey, LPCTSTR valname);
-static void ResetFirstRun(HKEY key);
 
 namespace Options
 {
@@ -173,12 +170,6 @@ void Init(COptionsMgr *pOptions)
 	else
 		pOptions->InitOption(OPT_CP_DETECT, (int)(50001 << 16) | 1);
 
-	pOptions->InitOption(OPT_VCS_SYSTEM, SourceControl::VCS_NONE);
-	pOptions->InitOption(OPT_VSS_PATH, _T(""));
-	pOptions->InitOption(OPT_VSS_DATABASE, _T(""));
-	pOptions->InitOption(OPT_VSS_PROJECT, _T(""));
-	pOptions->InitOption(OPT_VSS_USER, _T(""));
-
 	pOptions->InitOption(OPT_ARCHIVE_ENABLE, 1); // Enable by default
 	pOptions->InitOption(OPT_ARCHIVE_PROBETYPE, false);
 
@@ -230,7 +221,7 @@ static void CopyHKLMValues()
 /**
  * @brief Open HKLM registry key.
  * @param [out] key Pointer to open HKLM key.
- * @param [in] relpath Relative registry path (to WinMerge reg path) to open, or NULL.
+ * @param [in] relpath Relative registry path (to WinMerge reg path) to open, or nullptr.
  * @return true if opening succeeded.
  */
 static bool OpenHKLM(HKEY *key, LPCTSTR relpath)
@@ -253,7 +244,7 @@ static bool OpenHKLM(HKEY *key, LPCTSTR relpath)
  * @brief Open HKCU registry key.
  * Opens the HKCU key for WinMerge. If the key does not exist, creates one.
  * @param [out] key Pointer to open HKCU key.
- * @param [in] relpath Relative registry path (to WinMerge reg path) to open, or NULL.
+ * @param [in] relpath Relative registry path (to WinMerge reg path) to open, or nullptr.
  * @return true if opening succeeded.
  */
 static bool OpenHKCU(HKEY *key, LPCTSTR relpath)
@@ -272,7 +263,7 @@ static bool OpenHKCU(HKEY *key, LPCTSTR relpath)
 	else if (retval == ERROR_FILE_NOT_FOUND)
 	{
 		retval = RegCreateKeyEx(HKEY_CURRENT_USER,
-			valuename, 0, NULL, 0, KEY_ALL_ACCESS, NULL, key, NULL);
+			valuename, 0, nullptr, 0, KEY_ALL_ACCESS, nullptr, key, nullptr);
 		if (retval == ERROR_SUCCESS)
 			return true;
 	}
@@ -288,10 +279,10 @@ static bool OpenHKCU(HKEY *key, LPCTSTR relpath)
 static void CopyFromLMtoCU(HKEY lmKey, HKEY cuKey, LPCTSTR valname)
 {
 	DWORD len = 0;
-	LONG retval = RegQueryValueEx(cuKey, valname, 0, NULL, NULL, &len);
+	LONG retval = RegQueryValueEx(cuKey, valname, 0, nullptr, nullptr, &len);
 	if (retval == ERROR_FILE_NOT_FOUND)
 	{
-		retval = RegQueryValueEx(lmKey, valname, 0, NULL, NULL, &len);
+		retval = RegQueryValueEx(lmKey, valname, 0, nullptr, nullptr, &len);
 		if (retval == ERROR_SUCCESS)
 		{
 			DWORD type = 0;

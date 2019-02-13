@@ -24,6 +24,7 @@
  *  @brief Implementation of CDiffContext
  */ 
 
+#include "StdAfx.h"
 #include "DiffContext.h"
 #include <Poco/ScopedLock.h>
 #include "CompareOptions.h"
@@ -33,6 +34,10 @@
 #include "DiffItemList.h"
 #include "IAbortable.h"
 #include "DiffWrapper.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
 
 using Poco::FastMutex;
 
@@ -87,7 +92,7 @@ CDiffContext::~CDiffContext()
  * @param [in] diffpos DIFFITEM to update.
  * @param [in] nIndex index to update 
  */
-void CDiffContext::UpdateStatusFromDisk(uintptr_t diffpos, int nIndex)
+void CDiffContext::UpdateStatusFromDisk(DIFFITEM *diffpos, int nIndex)
 {
 	DIFFITEM &di = GetDiffRefAt(diffpos);
 	di.diffFileInfo[nIndex].ClearPartial();
@@ -103,7 +108,7 @@ void CDiffContext::UpdateStatusFromDisk(uintptr_t diffpos, int nIndex)
  * @param [in] nIndex index to update
  * @return true if file exists
  */
-bool CDiffContext::UpdateInfoFromDiskHalf(DIFFITEM & di, int nIndex)
+bool CDiffContext::UpdateInfoFromDiskHalf(DIFFITEM &di, int nIndex)
 {
 	String filepath = paths::ConcatPath(paths::ConcatPath(m_paths[nIndex], di.diffFileInfo[nIndex].path), di.diffFileInfo[nIndex].filename);
 	DiffFileInfo & dfi = di.diffFileInfo[nIndex];
@@ -142,7 +147,7 @@ static bool CheckFileForVersion(const String& ext)
  * @param [in,out] di DIFFITEM to update.
  * @param [in] bLeft If true left-side file is updated, right-side otherwise.
  */
-void CDiffContext::UpdateVersion(DIFFITEM & di, int nIndex) const
+void CDiffContext::UpdateVersion(DIFFITEM &di, int nIndex) const
 {
 	DiffFileInfo & dfi = di.diffFileInfo[nIndex];
 	// Check only binary files
@@ -182,15 +187,15 @@ bool CDiffContext::CreateCompareOptions(int compareMethod, const DIFFOPTIONS & o
 	m_pContentCompareOptions.reset();
 	m_pQuickCompareOptions.reset();
 	m_pOptions.reset(new DIFFOPTIONS);
-	if (m_pOptions != NULL)
+	if (m_pOptions != nullptr)
 		std::memcpy(m_pOptions.get(), &options, sizeof(DIFFOPTIONS));
 	else
 		return false;
 
 	m_nCompMethod = compareMethod;
-	if (GetCompareOptions(m_nCompMethod) == NULL)
+	if (GetCompareOptions(m_nCompMethod) == nullptr)
 	{
-		// For Date and Date+Size compare NULL is ok since they don't have actual
+		// For Date and Date+Size compare `nullptr` is ok since they don't have actual
 		// compare options.
 		if (m_nCompMethod == CMP_DATE || m_nCompMethod == CMP_DATE_SIZE ||
 			m_nCompMethod == CMP_SIZE)
@@ -215,26 +220,26 @@ bool CDiffContext::CreateCompareOptions(int compareMethod, const DIFFOPTIONS & o
 CompareOptions * CDiffContext::GetCompareOptions(int compareMethod)
 {
 	FastMutex::ScopedLock lock(m_mutex);
-	CompareOptions *pCompareOptions = NULL;
+	CompareOptions *pCompareOptions = nullptr;
 
 	// Otherwise we have to create new options
 	switch (compareMethod)
 	{
 	case CMP_CONTENT:
-		if (m_pContentCompareOptions)
+		if (m_pContentCompareOptions != nullptr)
 			return m_pContentCompareOptions.get();
 		m_pContentCompareOptions.reset(pCompareOptions = new DiffutilsOptions());
 		break;
 
 	case CMP_QUICK_CONTENT:
-		if (m_pQuickCompareOptions)
+		if (m_pQuickCompareOptions != nullptr)
 			return m_pQuickCompareOptions.get();
 		m_pQuickCompareOptions.reset(pCompareOptions = new QuickCompareOptions());
 		break;
 	}
 
 
-	if (pCompareOptions)
+	if (pCompareOptions != nullptr)
 		pCompareOptions->SetFromDiffOptions(*m_pOptions);
 
 	return pCompareOptions;
@@ -244,7 +249,7 @@ CompareOptions * CDiffContext::GetCompareOptions(int compareMethod)
 void CDiffContext::FetchPluginInfos(const String& filteredFilenames,
 		PackingInfo ** infoUnpacker, PrediffingInfo ** infoPrediffer)
 {
-	assert(m_piPluginInfos);
+	assert(m_piPluginInfos != nullptr);
 	m_piPluginInfos->FetchPluginInfos(filteredFilenames, infoUnpacker, infoPrediffer);
 }
 
@@ -254,5 +259,5 @@ void CDiffContext::FetchPluginInfos(const String& filteredFilenames,
  */
 bool CDiffContext::ShouldAbort() const
 {
-	return m_piAbortable && m_piAbortable->ShouldAbort();
+	return m_piAbortable!=nullptr && m_piAbortable->ShouldAbort();
 }

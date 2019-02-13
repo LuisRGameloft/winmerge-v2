@@ -1,8 +1,47 @@
-This file summarizes changes in WinMerge releases.
-Numbers in parentheses refer to SourceForge.net tracker item numbers
-old format (#XXXXXXX) or new format (patches:#XXXX) or
-to Subversion revision numbers (rXXXXX). To open the tracker item, go to URL:
-http://winmerge.org/tracker/[tracker-id]
+WinMerge 2.16.0
+  General:
+  - Bugfix: Disabled icon on toolbar not gray out when running on XP
+  File compare:
+  - Bugfix: Copy to X and Advance" not work in 3way-compare (Bitbucket #123)
+  - Bugfix: File compare always showing different ending (GitHub #106)
+  - Bugfix: Scrolling issue (GitHub #105)
+  - Bugfix: A crash (GitHub #104)
+  - Add separators to "Zoom" and "Diff Context" menus (Bitbucket PR #5)
+  Open dialog:
+  - Bugfix: Drag&Drop in Open Dialog won't work correct (Bitbucket #125)
+  Installer:
+  - Drop ClearCase integration (Bitbucket PR #6)
+  Translations:
+  - Add Lithuanian translation (Bitbucket #124)
+  - Update Portuguese translation (GitHub #102,103)
+
+WinMerge 2.15.5
+  General:
+  - Add support for very long path and file names (GitHub #87,95,99)
+  - Enable Ctrl+C shortcut key on the file path bar
+  - Remove support for old version control system (GitHub #96)
+  - Improve Options > Color > Differences dialog layout (GitHub #89)
+  - Improve information and formatting in Help > Configuration reporting (GitHub #92)
+  - Improve visual layout of Open dialog (GitHub #97)
+  - Add icon for "New (3 panes)" menu item (GitHub #97)
+  File compare:
+  - Add Window/Split menu item
+  - Improve handling of last lines in files (GitHub #89,90,93)
+  - Improve "Visual C++ Loose" filter (GitHub #95)
+  - BugFix: Crash when saving a file if the active pane is diff detail pane
+  - BugFix: Crash when pressing Alt+Down key while loading large files
+  - BugFix: Crash when "mousing over" Plugin Setting context menu if Plugins are disabled
+  - BugFix: Various problems reading of files > 2GB (GitHub #81)
+  - BugFix: Selecting files "From MRU list" again works correctly
+  Translations:
+  - Update Italian translation (GitHub #86)
+  - Update Japanese translation (Bitbucket #3)
+  - Update Dutch translation
+  - Update German translation
+  - Bugfix Spanish translation error (Bitbucket Issue #108)
+  Internals:
+  - Various diffengine and compilation/build fixes
+    (GitHub #89,90,91,92,94)
 
 WinMerge 2.15.4
   Appearance:

@@ -2,7 +2,7 @@
 
 #include "StdAfx.h"
 #include "cs2cs.h"
-#include <string.h>
+#include <cstring>
 #include <malloc.h>
 
 // Escaped character constants in range 0x80-0xFF are interpreted in current codepage
@@ -181,14 +181,16 @@ int
 iconvert (LPTSTR string, int source_coding, int destination_coding, bool alphabet_only)
   {
     ptrdiff_t posit = -2;
-    LPCTSTR source_chars, destination_chars, cod_pos = NULL;
+    LPCTSTR source_chars, destination_chars, cod_pos = nullptr;
     TCHAR ch;
     LPTSTR s = string;
   
+    if (string == nullptr)
+      return -1;
     if (source_coding < 0)
       {
         posit = fget_coding (string, &source_coding);
-        if (posit)
+        if (posit != 0)
           cod_pos = string + posit;
       }
     if (source_coding < 0)

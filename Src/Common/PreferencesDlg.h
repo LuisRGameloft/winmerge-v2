@@ -13,7 +13,6 @@
 #include "PropGeneral.h"
 #include "PropCompare.h"
 #include "PropEditor.h"
-#include "PropVss.h"
 #include "PropRegistry.h"
 #include "PropColors.h"
 #include "PropTextColors.h"
@@ -39,9 +38,9 @@ class CPreferencesDlg : public CTrDialog
 {
 // Construction
 public:
-	//CPreferencesDlg(UINT nMenuID = 0, CWnd* pParent = NULL);   // standard constructor
+	//CPreferencesDlg(UINT nMenuID = 0, CWnd* pParent = nullptr);   // standard constructor
 	CPreferencesDlg(COptionsMgr *optionsMgr, SyntaxColors *colors,
-		UINT nMenuID = 0, CWnd* pParent = NULL);   // standard constructor
+		UINT nMenuID = 0, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CPreferencesDlg();
 
 	void SetSyntaxColors(SyntaxColors *pColors);
@@ -57,7 +56,6 @@ protected:
 	PropGeneral m_pageGeneral;
 	PropCompare m_pageCompare;
 	PropEditor m_pageEditor;
-	PropVss m_pageVss;	
 	PropRegistry m_pageSystem;
 	PropCodepage m_pageCodepage;
 	PropMergeColors m_pageMergeColors;

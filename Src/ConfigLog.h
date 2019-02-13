@@ -41,7 +41,7 @@ public:
 
 	// Implementation methods
 protected:
-	void WriteItem(int indent, const String& key, const TCHAR *value = 0);
+	void WriteItem(int indent, const String& key, const TCHAR *value = nullptr);
 	void WriteItem(int indent, const String& key, const String &str);
 	void WriteItem(int indent, const String& key, long value);
 	void WriteVersionOf1(int indent, const String& path);
@@ -52,6 +52,7 @@ private:
 	bool DoFile(String &sError);
 	void WritePluginsInLogFile(const wchar_t *transformationEvent);
 	String GetWindowsVer() const;
+	String GetProcessorInfo() const;
 	String GetBuildFlags() const;
 	void FileWriteString(const String& lpsz);
 	void CloseFile();

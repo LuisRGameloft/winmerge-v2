@@ -20,6 +20,7 @@
  * @brief Code for DiffThread class
  */
 
+#include "stdafx.h"
 #include "DiffThread.h"
 #include <cassert>
 #include <climits>
@@ -32,6 +33,10 @@
 #include "PathContext.h"
 #include "CompareStats.h"
 #include "IAbortable.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
 
 using Poco::Thread;
 using Poco::Semaphore;
@@ -57,7 +62,7 @@ public:
  * @brief Default constructor.
  */
 CDiffThread::CDiffThread()
-: m_pDiffContext(NULL)
+: m_pDiffContext(nullptr)
 , m_bAborting(false)
 , m_bPaused(false)
 , m_pDiffParm(new DiffFuncStruct)
@@ -113,11 +118,11 @@ unsigned CDiffThread::CompareDirectories()
 
 	m_pDiffParm->context->m_pCompareStats->SetCompareState(CompareStats::STATE_START);
 
-	if (m_bOnlyRequested == false)
+	if (!m_bOnlyRequested)
 		m_threads[0].start(DiffThreadCollect, m_pDiffParm.get());
 	else
 	{
-		int nItems = DirScan_UpdateMarkedItems(m_pDiffParm.get(), 0);
+		int nItems = DirScan_UpdateMarkedItems(m_pDiffParm.get(), nullptr);
 		// Send message to UI to update
 		int event = CDiffThread::EVENT_COLLECT_COMPLETED;
 		m_pDiffParm->m_listeners.notify(m_pDiffParm.get(), event);
@@ -158,7 +163,7 @@ static void DiffThreadCollect(void *pParam)
 	PathContext paths;
 	DiffFuncStruct *myStruct = static_cast<DiffFuncStruct *>(pParam);
 
-	assert(myStruct->bOnlyRequested == false);
+	assert(!myStruct->bOnlyRequested);
 
 	// Stash abortable interface into context
 	myStruct->context->SetAbortable(myStruct->m_pAbortgate);
@@ -172,9 +177,9 @@ static void DiffThreadCollect(void *pParam)
 
 	// Build results list (except delaying file comparisons until below)
 	DirScan_GetItems(paths, subdir, myStruct,
-			casesensitive, depth, NULL, myStruct->context->m_bWalkUniques);
+			casesensitive, depth, nullptr, myStruct->context->m_bWalkUniques);
 
-	// ReleaseSemaphore() once again to signal that collect phase is ready
+	// Release Semaphore() once again to signal that collect phase is ready
 	myStruct->pSemaphore->set();
 
 	// Send message to UI to update
@@ -201,9 +206,9 @@ static void DiffThreadCompare(void *pParam)
 
 	// Now do all pending file comparisons
 	if (myStruct->bOnlyRequested)
-		DirScan_CompareRequestedItems(myStruct, 0);
+		DirScan_CompareRequestedItems(myStruct, nullptr);
 	else
-		DirScan_CompareItems(myStruct, 0);
+		DirScan_CompareItems(myStruct, nullptr);
 
 	myStruct->context->m_pCompareStats->SetCompareState(CompareStats::STATE_IDLE);
 

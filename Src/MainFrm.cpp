@@ -44,6 +44,7 @@
 #include "MergeDoc.h"
 #include "MergeEditView.h"
 #include "HexMergeDoc.h"
+#include "HexMergeView.h"
 #include "ImgMergeFrm.h"
 #include "LineFiltersList.h"
 #include "ConflictFileParser.h"
@@ -77,16 +78,6 @@ using std::vector;
 using boost::begin;
 using boost::end;
 
-/*
- One source file must compile the stubs for multimonitor
- by defining the symbol COMPILE_MULTIMON_STUBS & including <multimon.h>
-*/
-#ifdef COMPILE_MULTIMON_STUBS
-#undef COMPILE_MULTIMON_STUBS
-#endif
-#define COMPILE_MULTIMON_STUBS
-#include <multimon.h>
-
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -94,13 +85,14 @@ using boost::end;
 static void LoadToolbarImageList(int imageWidth, UINT nIDResource, UINT nIDResourceMask, bool bGrayscale, CImageList& ImgList);
 static CPtrList &GetDocList(CMultiDocTemplate *pTemplate);
 template<class DocClass>
-DocClass * GetMergeDocForDiff(CMultiDocTemplate *pTemplate, CDirDoc *pDirDoc, int nFiles);
+DocClass * GetMergeDocForDiff(CMultiDocTemplate *pTemplate, CDirDoc *pDirDoc, int nFiles, bool bMakeVisible = true);
 
 /**
  * @brief A table associating menuitem id, icon and menus to apply.
  */
 const CMainFrame::MENUITEM_ICON CMainFrame::m_MenuIcons[] = {
 	{ ID_FILE_OPENCONFLICT,			IDB_FILE_OPENCONFLICT,			CMainFrame::MENU_ALL },
+	{ ID_FILE_NEW3,                 IDB_FILE_NEW3,                  CMainFrame::MENU_ALL },
 	{ ID_EDIT_COPY,					IDB_EDIT_COPY,					CMainFrame::MENU_ALL },
 	{ ID_EDIT_CUT,					IDB_EDIT_CUT,					CMainFrame::MENU_ALL },
 	{ ID_EDIT_PASTE,				IDB_EDIT_PASTE,					CMainFrame::MENU_ALL },
@@ -188,11 +180,8 @@ BEGIN_MESSAGE_MAP(CMainFrame, CMDIFrameWnd)
 	ON_COMMAND(ID_HELP_GNULICENSE, OnHelpGnulicense)
 	ON_COMMAND(ID_OPTIONS, OnOptions)
 	ON_COMMAND(ID_VIEW_SELECTFONT, OnViewSelectfont)
-	ON_UPDATE_COMMAND_UI(ID_VIEW_SELECTFONT, OnUpdateViewSelectfont)
 	ON_COMMAND(ID_VIEW_USEDEFAULTFONT, OnViewUsedefaultfont)
-	ON_UPDATE_COMMAND_UI(ID_VIEW_USEDEFAULTFONT, OnUpdateViewUsedefaultfont)
 	ON_COMMAND(ID_HELP_CONTENTS, OnHelpContents)
-	ON_UPDATE_COMMAND_UI(ID_HELP_CONTENTS, OnUpdateHelpContents)
 	ON_WM_CLOSE()
 	ON_COMMAND(ID_TOOLS_GENERATEPATCH, OnToolsGeneratePatch)
 	ON_WM_DESTROY()
@@ -211,7 +200,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CMDIFrameWnd)
 	ON_COMMAND(ID_VIEW_TAB_BAR, OnViewTabBar)
 	ON_UPDATE_COMMAND_UI(ID_VIEW_RESIZE_PANES, OnUpdateResizePanes)
 	ON_COMMAND(ID_VIEW_RESIZE_PANES, OnResizePanes)
-	ON_COMMAND(ID_FILE_OPENPROJECT, OnFileOpenproject)
+	ON_COMMAND(ID_FILE_OPENPROJECT, OnFileOpenProject)
 	ON_MESSAGE(WM_COPYDATA, OnCopyData)
 	ON_MESSAGE(WM_USER+1, OnUser1)
 	ON_COMMAND(ID_WINDOW_CLOSEALL, OnWindowCloseAll)
@@ -279,8 +268,8 @@ static CPtrList &GetDocList(CMultiDocTemplate *pTemplate)
  * @todo Preference for logging?
  */
 CMainFrame::CMainFrame()
-: m_bFirstTime(TRUE)
-, m_pDropHandler(NULL)
+: m_bFirstTime(true)
+, m_pDropHandler(nullptr)
 , m_bShowErrors(false)
 {
 }
@@ -324,6 +313,8 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if (CMDIFrameWnd::OnCreate(lpCreateStruct) == -1)
 		return -1;
 
+	m_wndMDIClient.SubclassWindow(m_hWndMDIClient);
+
 	m_lfDiff = Options::Font::Load(GetOptionsMgr(), OPT_FONT_FILECMP);
 	m_lfDir = Options::Font::Load(GetOptionsMgr(), OPT_FONT_DIRCMP);
 	
@@ -340,7 +331,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	}
 	m_wndTabBar.SetAutoMaxWidth(GetOptionsMgr()->GetBool(OPT_TABBAR_AUTO_MAXWIDTH));
 
-	if (GetOptionsMgr()->GetBool(OPT_SHOW_TABBAR) == false)
+	if (!GetOptionsMgr()->GetBool(OPT_SHOW_TABBAR))
 		CMDIFrameWnd::ShowControlBar(&m_wndTabBar, false, 0);
 
 	if (!m_wndStatusBar.Create(this))
@@ -358,7 +349,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_wndStatusBar.SetPaneInfo(2, ID_STATUS_MERGINGMODE, 0, pointToPixel(75)); 
 	m_wndStatusBar.SetPaneInfo(3, ID_STATUS_DIFFNUM, 0, pointToPixel(112)); 
 
-	if (GetOptionsMgr()->GetBool(OPT_SHOW_STATUSBAR) == false)
+	if (!GetOptionsMgr()->GetBool(OPT_SHOW_STATUSBAR))
 		CMDIFrameWnd::ShowControlBar(&m_wndStatusBar, false, 0);
 
 	m_pDropHandler = new DropHandler(std::bind(&CMainFrame::OnDropFiles, this, std::placeholders::_1));
@@ -369,7 +360,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 void CMainFrame::OnDestroy(void)
 {
-	if (m_pDropHandler)
+	if (m_pDropHandler != nullptr)
 		RevokeDragDrop(m_hWnd);
 }
 
@@ -385,19 +376,19 @@ static HMENU GetSubmenu(HMENU mainMenu, UINT nIDFirstMenuItem, bool bFirstSubmen
 	{
 		// look for last submenu
 		for (i = ::GetMenuItemCount(menu) ; i >= 0  ; i--)
-			if (::GetSubMenu(menu, i) != NULL)
+			if (::GetSubMenu(menu, i) != nullptr)
 				return ::GetSubMenu(menu, i);
 	}
 	else
 	{
 		// look for first submenu
 		for (i = 0 ; i < ::GetMenuItemCount(menu) ; i++)
-			if (::GetSubMenu(menu, i) != NULL)
+			if (::GetSubMenu(menu, i) != nullptr)
 				return ::GetSubMenu(menu, i);
 	}
 
 	// error, submenu not found
-	return NULL;
+	return nullptr;
 }
 
 /** 
@@ -431,11 +422,11 @@ HMENU CMainFrame::GetPrediffersSubmenu(HMENU mainMenu)
 HMENU CMainFrame::NewMenu(int view, int ID)
 {
 	int menu_view, index;
-	if (m_pMenus[view] == NULL)
+	if (m_pMenus[view] == nullptr)
 	{
 		m_pMenus[view].reset(new BCMenu());
-		if (m_pMenus[view] == NULL)
-			return NULL;
+		if (m_pMenus[view] == nullptr)
+			return nullptr;
 	}
 
 	switch (view)
@@ -454,8 +445,8 @@ HMENU CMainFrame::NewMenu(int view, int ID)
 
 	if (!m_pMenus[view]->LoadMenu(ID))
 	{
-		ASSERT(FALSE);
-		return NULL;
+		ASSERT(false);
+		return nullptr;
 	}
 
 	if (view == MENU_IMGMERGEVIEW)
@@ -470,7 +461,7 @@ HMENU CMainFrame::NewMenu(int view, int ID)
 	{
 		if (menu_view == (m_MenuIcons[index].menusToApply & menu_view))
 		{
-			m_pMenus[view]->ModifyODMenu(NULL, m_MenuIcons[index].menuitemID, m_MenuIcons[index].iconResID);
+			m_pMenus[view]->ModifyODMenu(nullptr, m_MenuIcons[index].menuitemID, m_MenuIcons[index].iconResID);
 		}
 	}
 
@@ -537,7 +528,7 @@ HMENU CMainFrame::NewOpenViewMenu()
 void CMainFrame::OnMeasureItem(int nIDCtl,
 	LPMEASUREITEMSTRUCT lpMeasureItemStruct)
 {
-	BOOL setflag = FALSE;
+	bool setflag = false;
 	if (lpMeasureItemStruct->CtlType == ODT_MENU)
 	{
 		if (IsMenu(reinterpret_cast<HMENU>(static_cast<uintptr_t>(lpMeasureItemStruct->itemID))))
@@ -548,7 +539,7 @@ void CMainFrame::OnMeasureItem(int nIDCtl,
 			if (m_pMenus[MENU_DEFAULT]->IsMenu(cmenu))
 			{
 				m_pMenus[MENU_DEFAULT]->MeasureItem(lpMeasureItemStruct);
-				setflag = TRUE;
+				setflag = true;
 			}
 		}
 	}
@@ -568,7 +559,7 @@ LRESULT CMainFrame::OnMenuChar(UINT nChar, UINT nFlags,
 		lresult=BCMenu::FindKeyboardShortcut(nChar, nFlags, pMenu);
 	else
 		lresult=CMDIFrameWnd::OnMenuChar(nChar, nFlags, pMenu);
-	return(lresult);
+	return lresult;
 }
 
 /**
@@ -608,8 +599,8 @@ FileLocationGuessEncodings(FileLocation & fileloc, int iGuessEncoding)
 
 bool CMainFrame::ShowAutoMergeDoc(CDirDoc * pDirDoc,
 	int nFiles, const FileLocation ifileloc[],
-	const DWORD dwFlags[] /*=0*/, const String strDesc[], const String& sReportFile,
-	const PackingInfo * infoUnpacker /*= NULL*/)
+	const DWORD dwFlags[], const String strDesc[], const String& sReportFile /*= _T("")*/,
+	const PackingInfo * infoUnpacker /*= nullptr*/)
 {
 	int pane;
 	FileFilterHelper filterImg, filterBin;
@@ -619,9 +610,9 @@ bool CMainFrame::ShowAutoMergeDoc(CDirDoc * pDirDoc,
 	filterBin.SetMask(GetOptionsMgr()->GetString(OPT_CMP_BIN_FILEPATTERNS));
 	for (pane = 0; pane < nFiles; ++pane)
 	{
-		if (filterImg.includeFile(ifileloc[pane].filepath))
+		if (filterImg.includeFile(ifileloc[pane].filepath) && CImgMergeFrame::IsLoadable())
 			return ShowImgMergeDoc(pDirDoc, nFiles, ifileloc, dwFlags, strDesc, sReportFile, infoUnpacker);
-		else if (filterBin.includeFile(ifileloc[pane].filepath))
+		else if (filterBin.includeFile(ifileloc[pane].filepath) && CHexMergeView::IsLoadable())
 			return ShowHexMergeDoc(pDirDoc, nFiles, ifileloc, dwFlags, strDesc, sReportFile, infoUnpacker);
 	}
 	return ShowMergeDoc(pDirDoc, nFiles, ifileloc, dwFlags, strDesc, sReportFile, infoUnpacker);
@@ -661,19 +652,19 @@ int GetActivePaneFromFlags(int nFiles, const DWORD dwFlags[])
  */
 bool CMainFrame::ShowMergeDoc(CDirDoc * pDirDoc,
 	int nFiles, const FileLocation ifileloc[],
-	const DWORD dwFlags[], const String strDesc[], const String& sReportFile,
-	const PackingInfo * infoUnpacker /*= NULL*/)
+	const DWORD dwFlags[], const String strDesc[], const String& sReportFile /*= _T("")*/,
+	const PackingInfo * infoUnpacker /*= nullptr*/)
 {
-	if (!m_pMenus[MENU_MERGEVIEW])
+	if (m_pMenus[MENU_MERGEVIEW] == nullptr)
 		theApp.m_pDiffTemplate->m_hMenuShared = NewMergeViewMenu();
-	CMergeDoc * pMergeDoc = GetMergeDocForDiff<CMergeDoc>(theApp.m_pDiffTemplate, pDirDoc, nFiles);
+	CMergeDoc * pMergeDoc = GetMergeDocForDiff<CMergeDoc>(theApp.m_pDiffTemplate, pDirDoc, nFiles, false);
 
 	// Make local copies, so we can change encoding if we guess it below
 	FileLocation fileloc[3];
 	std::copy_n(ifileloc, nFiles, fileloc);
 
-	ASSERT(pMergeDoc);		// must ASSERT to get an answer to the question below ;-)
-	if (!pMergeDoc)
+	ASSERT(pMergeDoc != nullptr);		// must ASSERT to get an answer to the question below ;-)
+	if (pMergeDoc == nullptr)
 		return false; // when does this happen ?
 
 	// if an unpacker is selected, it must be used during LoadFromFile
@@ -720,17 +711,25 @@ bool CMainFrame::ShowMergeDoc(CDirDoc * pDirDoc,
 	}
 
 	// Note that OpenDocs() takes care of closing compare window when needed.
-	if (!pMergeDoc->OpenDocs(nFiles, fileloc, GetROFromFlags(nFiles, dwFlags).data(), strDesc, GetActivePaneFromFlags(nFiles, dwFlags)))
+	bool bResult = pMergeDoc->OpenDocs(nFiles, fileloc, GetROFromFlags(nFiles, dwFlags).data(), strDesc, GetActivePaneFromFlags(nFiles, dwFlags));
+
+	if (CChildFrame *pFrame = pMergeDoc->GetParentFrame())
+	{
+		if (!pFrame->IsActivated())
+			pFrame->InitialUpdateFrame(pMergeDoc, true);
+	}
+
+	if (!bResult)
 		return false;
 
 	for (int pane = 0; pane < nFiles; pane++)
 	{
 		if (dwFlags)
 		{
-			BOOL bModified = (dwFlags[pane] & FFILEOPEN_MODIFIED) > 0;
+			bool bModified = (dwFlags[pane] & FFILEOPEN_MODIFIED) > 0;
 			if (bModified)
 			{
-				pMergeDoc->m_ptBuf[pane]->SetModified(TRUE);
+				pMergeDoc->m_ptBuf[pane]->SetModified(true);
 				pMergeDoc->UpdateHeaderPath(pane);
 			}
 			if (dwFlags[pane] & FFILEOPEN_AUTOMERGE)
@@ -747,13 +746,13 @@ bool CMainFrame::ShowMergeDoc(CDirDoc * pDirDoc,
 }
 
 bool CMainFrame::ShowHexMergeDoc(CDirDoc * pDirDoc, int nFiles, const FileLocation fileloc[],
-	const DWORD dwFlags[] /*=0*/, const String strDesc[], const String& sReportFile,
-	const PackingInfo * infoUnpacker /*= NULL*/)
+	const DWORD dwFlags[], const String strDesc[], const String& sReportFile /*= _T("")*/,
+	const PackingInfo * infoUnpacker /*= nullptr*/)
 {
-	if (!m_pMenus[MENU_HEXMERGEVIEW])
+	if (m_pMenus[MENU_HEXMERGEVIEW] == nullptr)
 		theApp.m_pHexMergeTemplate->m_hMenuShared = NewHexMergeViewMenu();
 	CHexMergeDoc *pHexMergeDoc = GetMergeDocForDiff<CHexMergeDoc>(theApp.m_pHexMergeTemplate, pDirDoc, nFiles);
-	if (!pHexMergeDoc)
+	if (pHexMergeDoc == nullptr)
 		return false;
 
 	if (!pHexMergeDoc->OpenDocs(nFiles, fileloc, GetROFromFlags(nFiles, dwFlags).data(), strDesc, GetActivePaneFromFlags(nFiles, dwFlags)))
@@ -766,8 +765,8 @@ bool CMainFrame::ShowHexMergeDoc(CDirDoc * pDirDoc, int nFiles, const FileLocati
 }
 
 bool CMainFrame::ShowImgMergeDoc(CDirDoc * pDirDoc, int nFiles, const FileLocation fileloc[],
-	const DWORD dwFlags[], const String strDesc[], const String& sReportFile,
-	const PackingInfo * infoUnpacker/* = NULL*/)
+	const DWORD dwFlags[], const String strDesc[], const String& sReportFile /*= _T("")*/,
+	const PackingInfo * infoUnpacker /*= nullptr*/)
 {
 	CImgMergeFrame *pImgMergeFrame = new CImgMergeFrame();
 	if (!CImgMergeFrame::menu.m_hMenu)
@@ -812,10 +811,10 @@ void CMainFrame::OnOptions()
 
 	if (rv == IDOK)
 	{
-		LANGID lang = GetOptionsMgr()->GetInt(OPT_SELECTED_LANGUAGE);
+		LANGID lang = static_cast<LANGID>(GetOptionsMgr()->GetInt(OPT_SELECTED_LANGUAGE));
 		if (lang != theApp.m_pLangDlg->GetLangId())
 		{
-			theApp.m_pLangDlg->SetLanguage(lang, TRUE);
+			theApp.m_pLangDlg->SetLanguage(lang, true);
 	
 			// Update status bar inicator texts
 			theApp.SetIndicators(m_wndStatusBar, 0, 0);
@@ -891,23 +890,23 @@ static bool AddToRecentDocs(const PathContext& paths, const unsigned flags[], bo
  * @param [in] bRecurse Do we run recursive (folder) compare?
  * @param [in] pDirDoc Dir compare document to use.
  * @param [in] prediffer Prediffer plugin name.
- * @return TRUE if opening files and compare succeeded, FALSE otherwise.
+ * @return `true` if opening files and compare succeeded, `false` otherwise.
  */
-BOOL CMainFrame::DoFileOpen(const PathContext * pFiles /*=NULL*/,
-	const DWORD dwFlags[] /*=0*/, const String strDesc[], const String& sReportFile, bool bRecurse /*=FALSE*/, CDirDoc *pDirDoc/*=NULL*/,
-	String prediffer /*=_T("")*/, const PackingInfo *infoUnpacker/*=NULL*/)
+bool CMainFrame::DoFileOpen(const PathContext * pFiles /*= nullptr*/,
+	const DWORD dwFlags[] /*= nullptr*/, const String strDesc[] /*= nullptr*/, const String& sReportFile /*= T("")*/, bool bRecurse /*= false*/, CDirDoc *pDirDoc/*= nullptr*/,
+	String prediffer /*= _T("")*/, const PackingInfo *infoUnpacker /*= nullptr*/)
 {
-	if (pDirDoc && !pDirDoc->CloseMergeDocs())
-		return FALSE;
+	if (pDirDoc != nullptr && !pDirDoc->CloseMergeDocs())
+		return false;
 
-	FileTransform::g_bUnpackerMode = theApp.GetProfileInt(_T("Settings"), _T("UnpackerMode"), PLUGIN_MANUAL);
-	FileTransform::g_bPredifferMode = theApp.GetProfileInt(_T("Settings"), _T("PredifferMode"), PLUGIN_MANUAL);
+	FileTransform::g_UnpackerMode = static_cast<PLUGIN_MODE>(theApp.GetProfileInt(_T("Settings"), _T("UnpackerMode"), PLUGIN_MANUAL));
+	FileTransform::g_PredifferMode = static_cast<PLUGIN_MODE>(theApp.GetProfileInt(_T("Settings"), _T("PredifferMode"), PLUGIN_MANUAL));
 
 	Merge7zFormatMergePluginScope scope(infoUnpacker);
 
-	PathContext files;
-	if (pFiles)
-		files = *pFiles;
+	PathContext tFiles;
+	if (pFiles != nullptr)
+		tFiles = *pFiles;
 	bool bRO[3] = {0};
 	if (dwFlags)
 	{
@@ -917,10 +916,10 @@ BOOL CMainFrame::DoFileOpen(const PathContext * pFiles /*=NULL*/,
 	};
 
 	// pop up dialog unless arguments exist (and are compatible)
-	paths::PATH_EXISTENCE pathsType = paths::GetPairComparability(files, IsArchiveFile);
+	paths::PATH_EXISTENCE pathsType = paths::GetPairComparability(tFiles, IsArchiveFile);
 	if (pathsType == paths::DOES_NOT_EXIST)
 	{
-		if (!m_pMenus[MENU_OPENVIEW])
+		if (m_pMenus[MENU_OPENVIEW] == nullptr)
 			theApp.m_pOpenTemplate->m_hMenuShared = NewOpenViewMenu();
 		COpenDoc *pOpenDoc = static_cast<COpenDoc *>(theApp.m_pOpenTemplate->CreateNewDocument());
 		if (dwFlags)
@@ -929,61 +928,61 @@ BOOL CMainFrame::DoFileOpen(const PathContext * pFiles /*=NULL*/,
 			pOpenDoc->m_dwFlags[1] = dwFlags[1];
 			pOpenDoc->m_dwFlags[2] = dwFlags[2];
 		}
-		pOpenDoc->m_files = files;
+		pOpenDoc->m_files = tFiles;
 		pOpenDoc->m_bRecurse = bRecurse;
 		if (infoUnpacker)
 			pOpenDoc->m_infoHandler = *infoUnpacker;
-		CFrameWnd *pFrame = theApp.m_pOpenTemplate->CreateNewFrame(pOpenDoc, NULL);
+		CFrameWnd *pFrame = theApp.m_pOpenTemplate->CreateNewFrame(pOpenDoc, nullptr);
 		theApp.m_pOpenTemplate->InitialUpdateFrame(pFrame, pOpenDoc);
-		return TRUE;
+		return true;
 	}
 	else
 	{
 		// Add trailing '\' for directories if its missing
 		if (pathsType == paths::IS_EXISTING_DIR)
 		{
-			if (!paths::EndsWithSlash(files[0]) && !IsArchiveFile(files[0]))
-				files[0] = paths::AddTrailingSlash(files[0]);
-			if (!paths::EndsWithSlash(files[1]) && !IsArchiveFile(files[1]))
-				files[1] = paths::AddTrailingSlash(files[1]);
-			if (files.GetSize() == 3 && !paths::EndsWithSlash(files[2]) && !IsArchiveFile(files[1]))
-				files[2] = paths::AddTrailingSlash(files[2]);
+			if (!paths::EndsWithSlash(tFiles[0]) && !IsArchiveFile(tFiles[0]))
+				tFiles[0] = paths::AddTrailingSlash(tFiles[0]);
+			if (!paths::EndsWithSlash(tFiles[1]) && !IsArchiveFile(tFiles[1]))
+				tFiles[1] = paths::AddTrailingSlash(tFiles[1]);
+			if (tFiles.GetSize() == 3 && !paths::EndsWithSlash(tFiles[2]) && !IsArchiveFile(tFiles[1]))
+				tFiles[2] = paths::AddTrailingSlash(tFiles[2]);
 		}
 
 		//save the MRU left and right files.
 		if (dwFlags)
 		{
 			if (!(dwFlags[0] & FFILEOPEN_NOMRU))
-				addToMru(files[0].c_str(), _T("Files\\Left"));
+				addToMru(tFiles[0].c_str(), _T("Files\\Left"));
 			if (!(dwFlags[1] & FFILEOPEN_NOMRU))
-				addToMru(files[1].c_str(), _T("Files\\Right"));
-			if (files.GetSize() == 3 && !(dwFlags[2] & FFILEOPEN_NOMRU))
-				addToMru(files[2].c_str(), _T("Files\\Option"));
+				addToMru(tFiles[1].c_str(), _T("Files\\Right"));
+			if (tFiles.GetSize() == 3 && !(dwFlags[2] & FFILEOPEN_NOMRU))
+				addToMru(tFiles[2].c_str(), _T("Files\\Option"));
 		}
 	}
 
-	CTempPathContext *pTempPathContext = NULL;
+	CTempPathContext *pTempPathContext = nullptr;
 	if (pathsType == paths::IS_EXISTING_DIR)
 	{
-		DecompressResult res= DecompressArchive(m_hWnd, files);
+		DecompressResult res= DecompressArchive(m_hWnd, tFiles);
 		if (res.pTempPathContext)
 		{
 			pathsType = res.pathsType;
-			files = res.files;
+			tFiles = res.files;
 			pTempPathContext = res.pTempPathContext;
 		}
 	}
 
-	// Determine if we want new a dirview open now that we know if it was
-	// and archive. Don't open new dirview if we are comparing files.
-	if (!pDirDoc)
+	// Determine if we want a new dirview open, now that we know if it was
+	// an archive. Don't open a new dirview if we are comparing files.
+	if (pDirDoc == nullptr)
 	{
 		if (pathsType == paths::IS_EXISTING_DIR)
 		{
-			CDirDoc::m_nDirsTemp = files.GetSize();
-			if (!m_pMenus[MENU_DIRVIEW])
+			CDirDoc::m_nDirsTemp = tFiles.GetSize();
+			if (m_pMenus[MENU_DIRVIEW] == nullptr)
 				theApp.m_pDirTemplate->m_hMenuShared = NewDirViewMenu();
-			pDirDoc = static_cast<CDirDoc*>(theApp.m_pDirTemplate->OpenDocumentFile(NULL));
+			pDirDoc = static_cast<CDirDoc*>(theApp.m_pDirTemplate->OpenDocumentFile(nullptr));
 		}
 		else
 		{
@@ -994,20 +993,16 @@ BOOL CMainFrame::DoFileOpen(const PathContext * pFiles /*=NULL*/,
 	// open the diff
 	if (pathsType == paths::IS_EXISTING_DIR)
 	{
-		if (pDirDoc)
+		if (pDirDoc != nullptr)
 		{
-			if (files.GetSize() == 3)
-			{
-				AfxMessageBox(_T("3-way folder compare feature is in progress"), MB_ICONWARNING | MB_DONT_ASK_AGAIN);
-			}
 			// Anything that can go wrong inside InitCompare() will yield an
 			// exception. There is no point in checking return value.
-			pDirDoc->InitCompare(files, bRecurse, pTempPathContext);
+			pDirDoc->InitCompare(tFiles, bRecurse, pTempPathContext);
 
 			pDirDoc->SetReportFile(sReportFile);
 			pDirDoc->SetDescriptions(strDesc);
-			pDirDoc->SetTitle(NULL);
-			for (int nIndex = 0; nIndex < files.GetSize(); nIndex++)
+			pDirDoc->SetTitle(nullptr);
+			for (int nIndex = 0; nIndex < tFiles.GetSize(); nIndex++)
 				pDirDoc->SetReadOnly(nIndex, bRO[nIndex]);
 
 			pDirDoc->Rescan();
@@ -1017,26 +1012,26 @@ BOOL CMainFrame::DoFileOpen(const PathContext * pFiles /*=NULL*/,
 	{		
 		FileLocation fileloc[3];
 
-		for (int nPane = 0; nPane < files.GetSize(); nPane++)
-			fileloc[nPane].setPath(files[nPane]);
+		for (int nPane = 0; nPane < tFiles.GetSize(); nPane++)
+			fileloc[nPane].setPath(tFiles[nPane]);
 
 		if (!prediffer.empty())
 		{
-			String strBothFilenames = strutils::join(files.begin(), files.end(), _T("|"));
+			String strBothFilenames = strutils::join(tFiles.begin(), tFiles.end(), _T("|"));
 			pDirDoc->GetPluginManager().SetPrediffer(strBothFilenames, prediffer);
 		}
 
-		ShowAutoMergeDoc(pDirDoc, files.GetSize(), fileloc, dwFlags, strDesc, sReportFile,
+		ShowAutoMergeDoc(pDirDoc, tFiles.GetSize(), fileloc, dwFlags, strDesc, sReportFile,
 				infoUnpacker);
 	}
 
-	if (pFiles && (!dwFlags || !(dwFlags[0] & FFILEOPEN_NOMRU)))
+	if (pFiles != nullptr && (!dwFlags || !(dwFlags[0] & FFILEOPEN_NOMRU)))
 	{
 		String filter = GetOptionsMgr()->GetString(OPT_FILEFILTER_CURRENT);
 		AddToRecentDocs(*pFiles, (unsigned *)dwFlags, bRecurse, filter);
 	}
 
-	return TRUE;
+	return true;
 }
 
 void CMainFrame::UpdateFont(FRAMETYPE frame)
@@ -1045,10 +1040,10 @@ void CMainFrame::UpdateFont(FRAMETYPE frame)
 	{
 		for (auto pDoc : GetAllDirDocs())
 		{
-			if (pDoc)
+			if (pDoc != nullptr)
 			{
 				CDirView *pView = pDoc->GetMainView();
-				if (pView)
+				if (pView != nullptr)
 					pView->SetFont(m_lfDir);
 			}
 		}
@@ -1057,15 +1052,10 @@ void CMainFrame::UpdateFont(FRAMETYPE frame)
 	{
 		for (auto pDoc : GetAllMergeDocs())
 		{
-			for (int pane = 0; pane < pDoc->m_nBuffers; pane++)
-			{
-				CMergeEditView * pView = pDoc->GetView(pane);
-				CMergeEditView * pDetailView = pDoc->GetDetailView(pane);
-				if (pView)
+			CMergeDoc *pMergeDoc = dynamic_cast<CMergeDoc *>(pDoc);
+			if (pMergeDoc != nullptr)
+				for (auto& pView: pMergeDoc->GetViewList())
 					pView->SetFont(m_lfDiff);
-				if (pDetailView)
-					pDetailView->SetFont(m_lfDiff);
-			}
 		}
 	}
 }
@@ -1083,7 +1073,7 @@ void CMainFrame::OnViewSelectfont()
 {
 	FRAMETYPE frame = GetFrameType(GetActiveFrame());
 	CHOOSEFONT cf = { sizeof CHOOSEFONT };
-	LOGFONT *lf = NULL;
+	LOGFONT *lf = nullptr;
 	cf.Flags = CF_INITTOLOGFONTSTRUCT|CF_FORCEFONTEXIST|CF_SCREENFONTS;
 	if (frame == FRAME_FILE)
 		cf.Flags |= CF_FIXEDPITCHONLY; // Only fixed-width fonts for merge view
@@ -1102,14 +1092,6 @@ void CMainFrame::OnViewSelectfont()
 		Options::Font::Save(GetOptionsMgr(), frame == FRAME_FOLDER ? OPT_FONT_DIRCMP : OPT_FONT_FILECMP, lf, true);
 		UpdateFont(frame);
 	}
-}
-
-/**
- * @brief Enable 'Select font'.
- */
-void CMainFrame::OnUpdateViewSelectfont(CCmdUI* pCmdUI) 
-{
-	pCmdUI->Enable(TRUE);
 }
 
 /**
@@ -1139,14 +1121,6 @@ void CMainFrame::OnViewUsedefaultfont()
 }
 
 /**
- * @brief Enable 'Use Default font'.
- */
-void CMainFrame::OnUpdateViewUsedefaultfont(CCmdUI* pCmdUI) 
-{
-	pCmdUI->Enable(TRUE);
-}
-
-/**
  * @brief Update any resources necessary after a GUI language change
  */
 void CMainFrame::UpdateResources()
@@ -1156,6 +1130,8 @@ void CMainFrame::UpdateResources()
 	for (auto pDoc : GetAllDirDocs())
 		pDoc->UpdateResources();
 	for (auto pDoc : GetAllMergeDocs())
+		pDoc->UpdateResources();
+	for (auto pDoc : GetAllOpenDocs())
 		pDoc->UpdateResources();
 }
 
@@ -1167,14 +1143,6 @@ void CMainFrame::UpdateResources()
 void CMainFrame::OnHelpContents()
 {
 	theApp.ShowHelp();
-}
-
-/**
- * @brief Enable Open WinMerge help -menuitem.
- */
-void CMainFrame::OnUpdateHelpContents(CCmdUI* pCmdUI) 
-{
-	pCmdUI->Enable(TRUE);
 }
 
 /**
@@ -1196,7 +1164,7 @@ void CMainFrame::ActivateFrame(int nCmdShow)
 		return;
 	}
 
-	m_bFirstTime = FALSE;
+	m_bFirstTime = false;
 
 	WINDOWPLACEMENT wp;
 	wp.length = sizeof(WINDOWPLACEMENT);
@@ -1243,7 +1211,7 @@ void CMainFrame::OnClose()
 		return;
 
 	// Check if there are multiple windows open and ask for closing them
-	BOOL bAskClosing = GetOptionsMgr()->GetBool(OPT_ASK_MULTIWINDOW_CLOSE);
+	bool bAskClosing = GetOptionsMgr()->GetBool(OPT_ASK_MULTIWINDOW_CLOSE);
 	if (bAskClosing)
 	{
 		bool quit = AskCloseConfirmation();
@@ -1267,7 +1235,7 @@ void CMainFrame::OnClose()
 
 	// Close Non-Document/View frame with confirmation
 	CMDIChildWnd *pChild = static_cast<CMDIChildWnd *>(CWnd::FromHandle(m_hWndMDIClient)->GetWindow(GW_CHILD));
-	while (pChild)
+	while (pChild != nullptr)
 	{
 		CMDIChildWnd *pNextChild = static_cast<CMDIChildWnd *>(pChild->GetWindow(GW_HWNDNEXT));
 		if (GetFrameType(pChild) == FRAME_IMGFILE)
@@ -1310,7 +1278,7 @@ void CMainFrame::ApplyDiffOptions()
 		// Re-read MergeDoc settings (also updates view settings)
 		// and rescan using new options
 		pMergeDoc->RefreshOptions();
-		pMergeDoc->FlushAndRescan(TRUE);
+		pMergeDoc->FlushAndRescan(true);
 	}
 }
 
@@ -1343,12 +1311,12 @@ HexMergeDocList &CMainFrame::GetAllHexMergeDocs()
  * @return Pointer to CMergeDoc to use. 
  */
 template<class DocClass>
-DocClass * GetMergeDocForDiff(CMultiDocTemplate *pTemplate, CDirDoc *pDirDoc, int nFiles)
+DocClass * GetMergeDocForDiff(CMultiDocTemplate *pTemplate, CDirDoc *pDirDoc, int nFiles, bool bMakeVisible)
 {
 	// Create a new merge doc
 	DocClass::m_nBuffersTemp = nFiles;
-	DocClass *pMergeDoc = static_cast<DocClass*>(pTemplate->OpenDocumentFile(NULL));
-	if (pMergeDoc)
+	DocClass *pMergeDoc = static_cast<DocClass*>(pTemplate->OpenDocumentFile(nullptr, bMakeVisible));
+	if (pMergeDoc != nullptr)
 	{
 		pDirDoc->AddMergeDoc(pMergeDoc);
 		pMergeDoc->SetDirDoc(pDirDoc);
@@ -1377,8 +1345,8 @@ void CMainFrame::OnToolsGeneratePatch()
 
 void CMainFrame::OnDropFiles(const std::vector<String>& dropped_files)
 {
-	PathContext files(dropped_files);
-	const size_t fileCount = files.GetSize();
+	PathContext tFiles(dropped_files);
+	const size_t fileCount = tFiles.GetSize();
 
 	// If Ctrl pressed, do recursive compare
 	bool recurse = !!::GetAsyncKeyState(VK_CONTROL) || GetOptionsMgr()->GetBool(OPT_CMP_INCLUDE_SUBDIRS);
@@ -1387,26 +1355,26 @@ void CMainFrame::OnDropFiles(const std::vector<String>& dropped_files)
 	// assume it is an archive and set filenames to same
 	if (::GetAsyncKeyState(VK_SHIFT) < 0 && fileCount == 1)
 	{
-		files.SetRight(files[0]);
+		tFiles.SetRight(tFiles[0]);
 	}
 
 	// Check if they dropped a project file
 	DWORD dwFlags[3] = {FFILEOPEN_NONE, FFILEOPEN_NONE, FFILEOPEN_NONE};
 	if (fileCount == 1)
 	{
-		if (theApp.IsProjectFile(files[0]))
+		if (theApp.IsProjectFile(tFiles[0]))
 		{
-			theApp.LoadAndOpenProjectFile(files[0]);
+			theApp.LoadAndOpenProjectFile(tFiles[0]);
 			return;
 		}
-		if (IsConflictFile(files[0]))
+		if (IsConflictFile(tFiles[0]))
 		{
-			DoOpenConflict(files[0], nullptr, true);
+			DoOpenConflict(tFiles[0], nullptr, true);
 			return;
 		}
 	}
 
-	DoFileOpen(&files, dwFlags, NULL, _T(""), recurse);
+	DoFileOpen(&tFiles, dwFlags, nullptr, _T(""), recurse);
 }
 
 void CMainFrame::OnPluginUnpackMode(UINT nID )
@@ -1414,13 +1382,13 @@ void CMainFrame::OnPluginUnpackMode(UINT nID )
 	switch (nID)
 	{
 	case ID_UNPACK_MANUAL:
-		FileTransform::g_bUnpackerMode = PLUGIN_MANUAL;
+		FileTransform::g_UnpackerMode = PLUGIN_MANUAL;
 		break;
 	case ID_UNPACK_AUTO:
-		FileTransform::g_bUnpackerMode = PLUGIN_AUTO;
+		FileTransform::g_UnpackerMode = PLUGIN_AUTO;
 		break;
 	}
-	theApp.WriteProfileInt(_T("Settings"), _T("UnpackerMode"), FileTransform::g_bUnpackerMode);
+	theApp.WriteProfileInt(_T("Settings"), _T("UnpackerMode"), FileTransform::g_UnpackerMode);
 }
 
 void CMainFrame::OnUpdatePluginUnpackMode(CCmdUI* pCmdUI) 
@@ -1428,27 +1396,27 @@ void CMainFrame::OnUpdatePluginUnpackMode(CCmdUI* pCmdUI)
 	pCmdUI->Enable(GetOptionsMgr()->GetBool(OPT_PLUGINS_ENABLED));
 
 	if (pCmdUI->m_nID == ID_UNPACK_MANUAL)
-		pCmdUI->SetRadio(PLUGIN_MANUAL == FileTransform::g_bUnpackerMode);
+		pCmdUI->SetRadio(PLUGIN_MANUAL == FileTransform::g_UnpackerMode);
 	if (pCmdUI->m_nID == ID_UNPACK_AUTO)
-		pCmdUI->SetRadio(PLUGIN_AUTO == FileTransform::g_bUnpackerMode);
+		pCmdUI->SetRadio(PLUGIN_AUTO == FileTransform::g_UnpackerMode);
 }
 void CMainFrame::OnPluginPrediffMode(UINT nID )
 {
 	switch (nID)
 	{
 	case ID_PREDIFFER_MANUAL:
-		FileTransform::g_bPredifferMode = PLUGIN_MANUAL;
+		FileTransform::g_PredifferMode = PLUGIN_MANUAL;
 		break;
 	case ID_PREDIFFER_AUTO:
-		FileTransform::g_bPredifferMode = PLUGIN_AUTO;
+		FileTransform::g_PredifferMode = PLUGIN_AUTO;
 		break;
 	}
 	PrediffingInfo infoPrediffer;
 	for (auto pMergeDoc : GetAllMergeDocs())
 		pMergeDoc->SetPrediffer(&infoPrediffer);
 	for (auto pDirDoc : GetAllDirDocs())
-		pDirDoc->GetPluginManager().SetPrediffSettingAll(FileTransform::g_bPredifferMode);
-	theApp.WriteProfileInt(_T("Settings"), _T("PredifferMode"), FileTransform::g_bPredifferMode);
+		pDirDoc->GetPluginManager().SetPrediffSettingAll(FileTransform::g_PredifferMode);
+	theApp.WriteProfileInt(_T("Settings"), _T("PredifferMode"), FileTransform::g_PredifferMode);
 }
 
 void CMainFrame::OnUpdatePluginPrediffMode(CCmdUI* pCmdUI) 
@@ -1456,9 +1424,9 @@ void CMainFrame::OnUpdatePluginPrediffMode(CCmdUI* pCmdUI)
 	pCmdUI->Enable(GetOptionsMgr()->GetBool(OPT_PLUGINS_ENABLED));
 
 	if (pCmdUI->m_nID == ID_PREDIFFER_MANUAL)
-		pCmdUI->SetRadio(PLUGIN_MANUAL == FileTransform::g_bPredifferMode);
+		pCmdUI->SetRadio(PLUGIN_MANUAL == FileTransform::g_PredifferMode);
 	if (pCmdUI->m_nID == ID_PREDIFFER_AUTO)
-		pCmdUI->SetRadio(PLUGIN_AUTO == FileTransform::g_bPredifferMode);
+		pCmdUI->SetRadio(PLUGIN_AUTO == FileTransform::g_PredifferMode);
 }
 /**
  * @brief Called when "Reload Plugins" item is updated
@@ -1476,7 +1444,7 @@ void CMainFrame::OnReloadPlugins()
 
 	// update the editor scripts submenu
 	HMENU scriptsSubmenu = GetScriptsSubmenu(m_hMenuDefault);
-	if (scriptsSubmenu != NULL)
+	if (scriptsSubmenu != nullptr)
 		CMergeEditView::createScriptsSubmenu(scriptsSubmenu);
 	UpdatePrediffersMenu();
 }
@@ -1486,15 +1454,15 @@ CMergeEditView * CMainFrame::GetActiveMergeEditView()
 {
 	// NB: GetActiveDocument does not return the Merge Doc 
 	//     even when the merge edit view is in front
-	// NB: CChildFrame::GetActiveView returns NULL when location view active
+	// NB: CChildFrame::GetActiveView returns `nullptr` when location view active
 	// So we have this rather complicated logic to try to get a merge edit view
 	// We look at the front child window, which should be a frame
 	// and we can get a MergeEditView from it, if it is a CChildFrame
 	// (DirViews use a different frame type)
 	CChildFrame * pFrame = dynamic_cast<CChildFrame *>(GetActiveFrame());
-	if (!pFrame) return 0;
+	if (pFrame == nullptr) return nullptr;
 	// Try to get the active MergeEditView (ie, left or right)
-	if (pFrame->GetActiveView() && pFrame->GetActiveView()->IsKindOf(RUNTIME_CLASS(CMergeEditView)))
+	if (pFrame->GetActiveView() != nullptr && pFrame->GetActiveView()->IsKindOf(RUNTIME_CLASS(CMergeEditView)))
 	{
 		return dynamic_cast<CMergeEditView *>(pFrame->GetActiveView());
 	}
@@ -1504,17 +1472,17 @@ CMergeEditView * CMainFrame::GetActiveMergeEditView()
 void CMainFrame::UpdatePrediffersMenu()
 {
 	CMenu* menu = GetMenu();
-	if (menu == NULL)
+	if (menu == nullptr)
 	{
 		return;
 	}
 
 	HMENU hMainMenu = menu->m_hMenu;
 	HMENU prediffersSubmenu = GetPrediffersSubmenu(hMainMenu);
-	if (prediffersSubmenu != NULL)
+	if (prediffersSubmenu != nullptr)
 	{
 		CMergeEditView * pEditView = GetActiveMergeEditView();
-		if (pEditView)
+		if (pEditView != nullptr)
 			pEditView->createPrediffersSubmenu(prediffersSubmenu);
 		else
 		{
@@ -1522,7 +1490,7 @@ void CMainFrame::UpdatePrediffersMenu()
 			int i = GetMenuItemCount(prediffersSubmenu);
 			while (i --)
 				::DeleteMenu(prediffersSubmenu, 0, MF_BYPOSITION);
-			::AppendMenu(prediffersSubmenu, MF_SEPARATOR, 0, NULL);
+			::AppendMenu(prediffersSubmenu, MF_SEPARATOR, 0, nullptr);
 		}
 	}
 }
@@ -1653,7 +1621,7 @@ void CMainFrame::OnToolsFilters()
 		else
 		{
 			theApp.m_pGlobalFileFilter->SetFileFilterPath(path);
-			theApp.m_pGlobalFileFilter->UseMask(FALSE);
+			theApp.m_pGlobalFileFilter->UseMask(false);
 			String sFilter = theApp.m_pGlobalFileFilter->GetFilterNameOrMask();
 			GetOptionsMgr()->SaveOption(OPT_FILEFILTER_CURRENT, sFilter);
 		}
@@ -1661,8 +1629,8 @@ void CMainFrame::OnToolsFilters()
 		GetOptionsMgr()->SaveOption(OPT_LINEFILTER_ENABLED, linefiltersEnabled);
 
 		// Check if compare documents need rescanning
-		BOOL bFileCompareRescan = FALSE;
-		BOOL bFolderCompareRescan = FALSE;
+		bool bFileCompareRescan = false;
+		bool bFolderCompareRescan = false;
 		CFrameWnd * pFrame = GetActiveFrame();
 		FRAMETYPE frame = GetFrameType(pFrame);
 		if (frame == FRAME_FILE)
@@ -1670,7 +1638,7 @@ void CMainFrame::OnToolsFilters()
 			if (lineFiltersEnabledOrig != linefiltersEnabled ||
 					!theApp.m_pLineFilters->Compare(lineFilters.get()))
 			{
-				bFileCompareRescan = TRUE;
+				bFileCompareRescan = true;
 			}
 		}
 		else if (frame == FRAME_FOLDER)
@@ -1681,7 +1649,7 @@ void CMainFrame::OnToolsFilters()
 			{
 				int res = LangMessageBox(IDS_FILTERCHANGED, MB_ICONWARNING | MB_YESNO);
 				if (res == IDYES)
-					bFolderCompareRescan = TRUE;
+					bFolderCompareRescan = true;
 			}
 		}
 
@@ -1692,7 +1660,7 @@ void CMainFrame::OnToolsFilters()
 		if (bFileCompareRescan)
 		{
 			for (auto pMergeDoc : GetAllMergeDocs())
-				pMergeDoc->FlushAndRescan(TRUE);
+				pMergeDoc->FlushAndRescan(true);
 		}
 		else if (bFolderCompareRescan)
 		{
@@ -1725,7 +1693,7 @@ BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 	{
 		if (theApp.m_bEscShutdown && m_wndTabBar.GetItemCount() <= 1)
 		{
-			AfxGetMainWnd()->PostMessage(WM_COMMAND, ID_APP_EXIT);
+			AfxGetMainWnd()->SendMessage(WM_COMMAND, ID_APP_EXIT);
 			return TRUE;
 		}
 		else if (GetOptionsMgr()->GetBool(OPT_CLOSE_WITH_ESC) && m_wndTabBar.GetItemCount() == 0)
@@ -1802,14 +1770,14 @@ void CMainFrame::OnResizePanes()
 /**
  * @brief Open project-file.
  */
-void CMainFrame::OnFileOpenproject()
+void CMainFrame::OnFileOpenProject()
 {
 	String sFilepath;
 	
 	// get the default projects path
 	String strProjectPath = GetOptionsMgr()->GetString(OPT_PROJECTS_PATH);
-	if (!SelectFile(GetSafeHwnd(), sFilepath, strProjectPath.c_str(), _("Open"),
-			_("WinMerge Project Files (*.WinMerge)|*.WinMerge||"), TRUE))
+	if (!SelectFile(GetSafeHwnd(), sFilepath, true, strProjectPath.c_str(), _T(""),
+			_("WinMerge Project Files (*.WinMerge)|*.WinMerge||")))
 		return;
 	
 	strProjectPath = paths::GetParentPath(sFilepath);
@@ -1844,12 +1812,12 @@ LRESULT CMainFrame::OnCopyData(WPARAM wParam, LPARAM lParam)
 LRESULT CMainFrame::OnUser1(WPARAM wParam, LPARAM lParam)
 {
 	CFrameWnd * pFrame = GetActiveFrame();
-	if (pFrame)
+	if (pFrame != nullptr)
 	{
 		IMergeDoc *pMergeDoc = dynamic_cast<IMergeDoc *>(pFrame->GetActiveDocument());
-		if (!pMergeDoc)
+		if (pMergeDoc == nullptr)
 			pMergeDoc = dynamic_cast<IMergeDoc *>(pFrame);
-		if (pMergeDoc)
+		if (pMergeDoc != nullptr)
 			pMergeDoc->CheckFileChanged();
 	}
 	return 0;
@@ -1863,10 +1831,10 @@ LRESULT CMainFrame::OnUser1(WPARAM wParam, LPARAM lParam)
 void CMainFrame::OnWindowCloseAll()
 {
 	CMDIChildWnd *pChild = MDIGetActive();
-	while (pChild)
+	while (pChild != nullptr)
 	{
 		CDocument* pDoc;
-		if ((pDoc = pChild->GetActiveDocument()) != NULL)
+		if ((pDoc = pChild->GetActiveDocument()) != nullptr)
 		{
 			if (!pDoc->SaveModified())
 				return;
@@ -1908,9 +1876,9 @@ void CMainFrame::OnUpdateWindowCloseAll(CCmdUI* pCmdUI)
 CMainFrame * GetMainFrame()
 {
 	CWnd * mainwnd = AfxGetMainWnd();
-	ASSERT(mainwnd);
+	ASSERT(mainwnd != nullptr);
 	CMainFrame *pMainframe = dynamic_cast<CMainFrame*>(mainwnd);
-	ASSERT(pMainframe);
+	ASSERT(pMainframe != nullptr);
 	return pMainframe;
 }
 
@@ -1921,7 +1889,7 @@ CMainFrame * GetMainFrame()
  */
 void CMainFrame::OnSaveProject()
 {
-	if (!m_pMenus[MENU_OPENVIEW])
+	if (m_pMenus[MENU_OPENVIEW] == nullptr)
 		theApp.m_pOpenTemplate->m_hMenuShared = NewOpenViewMenu();
 	COpenDoc *pOpenDoc = static_cast<COpenDoc *>(theApp.m_pOpenTemplate->CreateNewDocument());
 
@@ -1933,7 +1901,7 @@ void CMainFrame::OnSaveProject()
 	{
 		CMergeDoc * pMergeDoc = static_cast<CMergeDoc *>(pFrame->GetActiveDocument());
 		pOpenDoc->m_files = pMergeDoc->m_filePaths;
-		for (int pane = 0; pane < pOpenDoc->m_files.size(); ++pane)
+		for (size_t pane = 0; pane < pOpenDoc->m_files.size(); ++pane)
 			pOpenDoc->m_dwFlags[pane] = FFILEOPEN_PROJECT | (pMergeDoc->m_ptBuf[pane]->GetReadOnly() ? FFILEOPEN_PROJECT : 0);
 		pOpenDoc->m_bRecurse = GetOptionsMgr()->GetBool(OPT_CMP_INCLUDE_SUBDIRS);
 		pOpenDoc->m_strExt = theApp.m_pGlobalFileFilter->GetFilterNameOrMask();
@@ -1954,7 +1922,7 @@ void CMainFrame::OnSaveProject()
 		pOpenDoc->m_strExt = static_cast<FileFilterHelper *>(ctxt.m_piFilterGlobal)->GetFilterNameOrMask();
 	}
 
-	CFrameWnd *pOpenFrame = theApp.m_pOpenTemplate->CreateNewFrame(pOpenDoc, NULL);
+	CFrameWnd *pOpenFrame = theApp.m_pOpenTemplate->CreateNewFrame(pOpenDoc, nullptr);
 	theApp.m_pOpenTemplate->InitialUpdateFrame(pOpenFrame, pOpenDoc);
 }
 
@@ -1981,12 +1949,12 @@ void CMainFrame::OnActivateApp(BOOL bActive, HTASK hTask)
 #endif
 
 	CFrameWnd * pFrame = GetActiveFrame();
-	if (pFrame)
+	if (pFrame != nullptr)
 	{
 		IMergeDoc *pMergeDoc = dynamic_cast<IMergeDoc *>(pFrame->GetActiveDocument());
-		if (!pMergeDoc)
+		if (pMergeDoc == nullptr)
 			pMergeDoc = dynamic_cast<IMergeDoc *>(pFrame);
-		if (pMergeDoc)
+		if (pMergeDoc != nullptr)
 			PostMessage(WM_USER+1);
 	}
 }
@@ -2022,7 +1990,7 @@ BOOL CMainFrame::CreateToolbar()
 	nStyle |= TBSTYLE_DROPDOWN;
 	m_wndToolBar.SetButtonInfo(index, nID, nStyle, iImage);
 
-	if (GetOptionsMgr()->GetBool(OPT_SHOW_TOOLBAR) == false)
+	if (!GetOptionsMgr()->GetBool(OPT_SHOW_TOOLBAR))
 	{
 		CMDIFrameWnd::ShowControlBar(&m_wndToolBar, false, 0);
 	}
@@ -2097,7 +2065,7 @@ void CMainFrame::OnUpdateFrameTitle(BOOL bAddToTitle)
 {
 	CFrameWnd::OnUpdateFrameTitle(bAddToTitle);
 	
-	if (m_wndTabBar.m_hWnd)
+	if (m_wndTabBar.m_hWnd != nullptr)
 		m_wndTabBar.UpdateTabs();
 }
 
@@ -2126,7 +2094,7 @@ void CMainFrame::OnUpdateToolbarSize(CCmdUI *pCmdUI)
 	if (!GetOptionsMgr()->GetBool(OPT_SHOW_TOOLBAR))
 		pCmdUI->SetRadio(pCmdUI->m_nID == ID_TOOLBAR_NONE);
 	else
-		pCmdUI->SetRadio((pCmdUI->m_nID - ID_TOOLBAR_SMALL) == GetOptionsMgr()->GetInt(OPT_TOOLBAR_SIZE));
+		pCmdUI->SetRadio((pCmdUI->m_nID - ID_TOOLBAR_SMALL) == static_cast<UINT>(GetOptionsMgr()->GetInt(OPT_TOOLBAR_SIZE)));
 }
 
 /** @brief Lang aware version of CFrameWnd::OnToolTipText() */
@@ -2212,7 +2180,7 @@ bool CMainFrame::AskCloseConfirmation()
 void CMainFrame::OnHelpReleasenotes()
 {
 	const String sPath = paths::ConcatPath(env::GetProgPath(), RelNotes);
-	ShellExecute(NULL, _T("open"), sPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+	ShellExecute(nullptr, _T("open"), sPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
 
 /**
@@ -2221,7 +2189,7 @@ void CMainFrame::OnHelpReleasenotes()
  */
 void CMainFrame::OnHelpTranslations()
 {
-	ShellExecute(NULL, _T("open"), TranslationsUrl, NULL, NULL, SW_SHOWNORMAL);
+	ShellExecute(nullptr, _T("open"), TranslationsUrl, nullptr, nullptr, SW_SHOWNORMAL);
 }
 
 /**
@@ -2248,11 +2216,11 @@ void CMainFrame::OnFileOpenConflict()
  * file as resolved file.
  * @param [in] conflictFile Full path to conflict file to open.
  * @param [in] checked If true, do not check if it really is project file.
- * @return TRUE if conflict file was opened for resolving.
+ * @return `true` if conflict file was opened for resolving.
  */
-BOOL CMainFrame::DoOpenConflict(const String& conflictFile, const String strDesc[], bool checked)
+bool CMainFrame::DoOpenConflict(const String& conflictFile, const String strDesc[] /*= nullptr*/, bool checked /*= false*/)
 {
-	BOOL conflictCompared = FALSE;
+	bool conflictCompared = false;
 
 	if (!checked)
 	{
@@ -2261,7 +2229,7 @@ BOOL CMainFrame::DoOpenConflict(const String& conflictFile, const String strDesc
 		{
 			String message = strutils::format_string1(_("The file\n%1\nis not a conflict file."), conflictFile);
 			AfxMessageBox(message.c_str(), MB_ICONSTOP);
-			return FALSE;
+			return false;
 		}
 	}
 
@@ -2322,10 +2290,10 @@ BOOL CMainFrame::DoOpenConflict(const String& conflictFile, const String strDesc
 */
 CMainFrame::FRAMETYPE CMainFrame::GetFrameType(const CFrameWnd * pFrame) const
 {
-	BOOL bMergeFrame = pFrame->IsKindOf(RUNTIME_CLASS(CChildFrame));
-	BOOL bHexMergeFrame = pFrame->IsKindOf(RUNTIME_CLASS(CHexMergeFrame));
-	BOOL bImgMergeFrame = pFrame->IsKindOf(RUNTIME_CLASS(CImgMergeFrame));
-	BOOL bDirFrame = pFrame->IsKindOf(RUNTIME_CLASS(CDirFrame));
+	bool bMergeFrame = !!pFrame->IsKindOf(RUNTIME_CLASS(CChildFrame));
+	bool bHexMergeFrame = !!pFrame->IsKindOf(RUNTIME_CLASS(CHexMergeFrame));
+	bool bImgMergeFrame = !!pFrame->IsKindOf(RUNTIME_CLASS(CImgMergeFrame));
+	bool bDirFrame = !!pFrame->IsKindOf(RUNTIME_CLASS(CDirFrame));
 
 	if (bMergeFrame)
 		return FRAME_FILE;
@@ -2356,10 +2324,10 @@ void CMainFrame::OnDiffOptionsDropDown(NMHDR* pNMHDR, LRESULT* pResult)
 	VERIFY(menu.LoadMenu(IDR_POPUP_DIFF_OPTIONS));
 	theApp.TranslateMenu(menu.m_hMenu);
 	CMenu* pPopup = menu.GetSubMenu(0);
-	if (NULL != pPopup)
+	if (pPopup != nullptr)
 	{
-		pPopup->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, 
-			pToolBar->rcButton.left, pToolBar->rcButton.bottom, this);
+		pPopup->TrackPopupMenu(TPM_RIGHTALIGN | TPM_RIGHTBUTTON, 
+			pToolBar->rcButton.right, pToolBar->rcButton.bottom, this);
 	}
 	*pResult = 0;
 }
@@ -2371,7 +2339,7 @@ void CMainFrame::OnDiffWhitespace(UINT nID)
 
 void CMainFrame::OnUpdateDiffWhitespace(CCmdUI* pCmdUI)
 {
-	pCmdUI->SetRadio((pCmdUI->m_nID - IDC_DIFF_WHITESPACE_COMPARE) == GetOptionsMgr()->GetInt(OPT_CMP_IGNORE_WHITESPACE));
+	pCmdUI->SetRadio((pCmdUI->m_nID - IDC_DIFF_WHITESPACE_COMPARE) == static_cast<UINT>(GetOptionsMgr()->GetInt(OPT_CMP_IGNORE_WHITESPACE)));
 	pCmdUI->Enable();
 }
 
@@ -2422,7 +2390,7 @@ void CMainFrame::OnCompareMethod(UINT nID)
 
 void CMainFrame::OnUpdateCompareMethod(CCmdUI* pCmdUI)
 {
-	pCmdUI->SetRadio((pCmdUI->m_nID - ID_COMPMETHOD_FULL_CONTENTS) == GetOptionsMgr()->GetInt(OPT_CMP_METHOD));
+	pCmdUI->SetRadio((pCmdUI->m_nID - ID_COMPMETHOD_FULL_CONTENTS) == static_cast<UINT>(GetOptionsMgr()->GetInt(OPT_CMP_METHOD)));
 	pCmdUI->Enable();
 }
 
@@ -2441,7 +2409,7 @@ void CMainFrame::OnUpdateNoMRUs(CCmdUI* pCmdUI)
 {
 	// append the MRU submenu
 	HMENU hMenu = GetSubmenu(AfxGetMainWnd()->GetMenu()->m_hMenu, ID_FILE_NEW, false);
-	if (hMenu == NULL)
+	if (hMenu == nullptr)
 		return;
 	
 	// empty the menu
@@ -2488,7 +2456,7 @@ void CMainFrame::ReloadMenu()
 	HMENU hNewMergeMenu = pMainFrame->NewMergeViewMenu();
 	HMENU hNewImgMergeMenu = pMainFrame->NewImgMergeViewMenu();
 	HMENU hNewDirMenu = pMainFrame->NewDirViewMenu();
-	if (hNewDefaultMenu && hNewMergeMenu && hNewDirMenu)
+	if (hNewDefaultMenu != nullptr && hNewMergeMenu != nullptr && hNewDirMenu != nullptr)
 	{
 		// Note : for Windows98 compatibility, use FromHandle and not Attach/Detach
 		CMenu * pNewDefaultMenu = CMenu::FromHandle(hNewDefaultMenu);
@@ -2497,7 +2465,7 @@ void CMainFrame::ReloadMenu()
 		CMenu * pNewDirMenu = CMenu::FromHandle(hNewDirMenu);
 
 		CWnd *pFrame = CWnd::FromHandle(::GetWindow(pMainFrame->m_hWndMDIClient, GW_CHILD));
-		while (pFrame)
+		while (pFrame != nullptr)
 		{
 			if (pFrame->IsKindOf(RUNTIME_CLASS(CChildFrame)))
 				static_cast<CChildFrame *>(pFrame)->SetSharedMenu(hNewMergeMenu);
@@ -2513,30 +2481,30 @@ void CMainFrame::ReloadMenu()
 		}
 
 		CFrameWnd *pActiveFrame = pMainFrame->GetActiveFrame();
-		if (pActiveFrame)
+		if (pActiveFrame != nullptr)
 		{
 			if (pActiveFrame->IsKindOf(RUNTIME_CLASS(CChildFrame)))
-				pMainFrame->MDISetMenu(pNewMergeMenu, NULL);
+				pMainFrame->MDISetMenu(pNewMergeMenu, nullptr);
 			else if (pActiveFrame->IsKindOf(RUNTIME_CLASS(CHexMergeFrame)))
-				pMainFrame->MDISetMenu(pNewMergeMenu, NULL);
+				pMainFrame->MDISetMenu(pNewMergeMenu, nullptr);
 			else if (pActiveFrame->IsKindOf(RUNTIME_CLASS(CImgMergeFrame)))
-				pMainFrame->MDISetMenu(pNewImgMergeMenu, NULL);
+				pMainFrame->MDISetMenu(pNewImgMergeMenu, nullptr);
 			else if (pActiveFrame->IsKindOf(RUNTIME_CLASS(CDirFrame)))
-				pMainFrame->MDISetMenu(pNewDirMenu, NULL);
+				pMainFrame->MDISetMenu(pNewDirMenu, nullptr);
 			else
-				pMainFrame->MDISetMenu(pNewDefaultMenu, NULL);
+				pMainFrame->MDISetMenu(pNewDefaultMenu, nullptr);
 		}
 		else
-			pMainFrame->MDISetMenu(pNewDefaultMenu, NULL);
+			pMainFrame->MDISetMenu(pNewDefaultMenu, nullptr);
 
 		// Don't delete the old menu
 		// There is a bug in BCMenu or in Windows98 : the new menu does not
 		// appear correctly if we destroy the old one
-		//			if (pOldDefaultMenu)
+		//			if (pOldDefaultMenu != nullptr)
 		//				pOldDefaultMenu->DestroyMenu();
-		//			if (pOldMergeMenu)
+		//			if (pOldMergeMenu != nullptr)
 		//				pOldMergeMenu->DestroyMenu();
-		//			if (pOldDirMenu)
+		//			if (pOldDirMenu = nullptr)
 		//				pOldDirMenu->DestroyMenu();
 
 		// m_hMenuDefault is used to redraw the main menu when we close a child frame
@@ -2555,17 +2523,17 @@ void CMainFrame::UpdateDocTitle()
 {
 	CDocManager* pDocManager = AfxGetApp()->m_pDocManager;
 	POSITION posTemplate = pDocManager->GetFirstDocTemplatePosition();
-	ASSERT(posTemplate != NULL);
+	ASSERT(posTemplate != nullptr);
 
-	while (posTemplate != NULL)
+	while (posTemplate != nullptr)
 	{
 		CDocTemplate* pTemplate = pDocManager->GetNextDocTemplate(posTemplate);
 
-		ASSERT(pTemplate != NULL);
+		ASSERT(pTemplate != nullptr);
 
 		for (auto pDoc : GetDocList(static_cast<CMultiDocTemplate *>(pTemplate)))
 		{
-			static_cast<CDocument *>(const_cast<void *>(pDoc))->SetTitle(NULL);
+			static_cast<CDocument *>(const_cast<void *>(pDoc))->SetTitle(nullptr);
 			((CFrameWnd*)AfxGetApp()->m_pMainWnd)->OnUpdateFrameTitle(TRUE);
 		}
 	}

@@ -34,6 +34,7 @@
 
 BEGIN_MESSAGE_MAP(CEditorFilePathBar, CDialogBar)
 	ON_NOTIFY_EX (TTN_NEEDTEXT, 0, OnToolTipNotify)
+	ON_CONTROL_RANGE (EN_SETFOCUS, IDC_STATIC_TITLE_PANE0, IDC_STATIC_TITLE_PANE2, OnSetFocusEdit)
 END_MESSAGE_MAP()
 
 
@@ -98,7 +99,7 @@ void CEditorFilePathBar::SetPaneCount(int nPanes)
  */
 void CEditorFilePathBar::Resize()
 {
-	if (m_hWnd == NULL)
+	if (m_hWnd == nullptr)
 		return;
 
 	WINDOWPLACEMENT infoBar;
@@ -106,9 +107,18 @@ void CEditorFilePathBar::Resize()
 
 	int widths[3];
 	for (int pane = 0; pane < m_nPanes; pane++)
-		widths[pane] = (infoBar.rcNormalPosition.right / m_nPanes) - 6;
+		widths[pane] = (infoBar.rcNormalPosition.right / m_nPanes);
 	Resize(widths);
 }
+
+/** 
+ * @brief Set callback function on EN_SETFOCUS notification
+ */
+void CEditorFilePathBar::SetOnSetFocusCallback(const std::function<void(int)> callbackfunc)
+{
+	m_callbackfunc = callbackfunc;
+}
+
 /** 
  * @brief Set widths.
  * This function resizes both controls to given size. The width is usually
@@ -118,7 +128,7 @@ void CEditorFilePathBar::Resize()
  */
 void CEditorFilePathBar::Resize(int widths[])
 {
-	if (m_hWnd == NULL)
+	if (m_hWnd == nullptr)
 		return;
 
 	// resize left filename
@@ -130,8 +140,8 @@ void CEditorFilePathBar::Resize(int widths[])
 		CRect rcOld;
 		m_Edit[pane].GetClientRect(&rcOld);
 		rc.left = x;
-		rc.right = x + widths[pane] + 4;
-		x += widths[pane] + 7;
+		rc.right = x + widths[pane] + (pane == 0 ? 5 : 7);
+		x = rc.right;
 		if (rcOld.Width() != rc.Width())
 		{
 			m_Edit[pane].MoveWindow(&rc);
@@ -146,7 +156,7 @@ void CEditorFilePathBar::Resize(int widths[])
  */
 BOOL CEditorFilePathBar::OnToolTipNotify(UINT id, NMHDR * pTTTStruct, LRESULT * pResult)
 {
-	if (m_hWnd == NULL)
+	if (m_hWnd == nullptr)
 		return FALSE;
 
 	TOOLTIPTEXT *pTTT = (TOOLTIPTEXT *)pTTTStruct;
@@ -175,17 +185,23 @@ BOOL CEditorFilePathBar::OnToolTipNotify(UINT id, NMHDR * pTTTStruct, LRESULT * 
 			pTTT->lpszText = const_cast<TCHAR *>(pItem->GetUpdatedTipText(&tempDC, maxWidth).c_str());
 
 			// set old font back
-			if (hOldFont)
+			if (hOldFont != nullptr)
 				::SelectObject(tempDC.GetSafeHdc(),hOldFont);
 
 			// we must set TTM_SETMAXTIPWIDTH to use \n in tooltips
 			// just to do the first time, but how to access the tooltip during init ?
 			::SendMessage(pTTTStruct->hwndFrom, TTM_SETMAXTIPWIDTH, 0, 5000);
 
-			return(TRUE);
+			return TRUE;
 		}
 	}
-	return(FALSE);
+	return FALSE;
+}
+
+void CEditorFilePathBar::OnSetFocusEdit(UINT id)
+{
+	if (m_callbackfunc)
+		m_callbackfunc(id - IDC_STATIC_TITLE_PANE0);
 }
 
 /** 
@@ -197,8 +213,8 @@ String CEditorFilePathBar::GetText(int pane) const
 {
 	ASSERT (pane >= 0 && pane < countof(m_Edit));
 
-	// Check for NULL since window may be closing..
-	if (m_hWnd == NULL)
+	// Check for `nullptr` since window may be closing..
+	if (m_hWnd == nullptr)
 		return _T("");
 
 	CString str;
@@ -216,8 +232,8 @@ void CEditorFilePathBar::SetText(int pane, const String& sString)
 {
 	ASSERT (pane >= 0 && pane < countof(m_Edit));
 
-	// Check for NULL since window may be closing..
-	if (m_hWnd == NULL)
+	// Check for `nullptr` since window may be closing..
+	if (m_hWnd == nullptr)
 		return;
 
 	m_Edit[pane].SetOriginalText(sString);
@@ -227,14 +243,14 @@ void CEditorFilePathBar::SetText(int pane, const String& sString)
  * @brief Set the active status for one status (change the appearance)
  *
  * @param [in] pane Index (0-based) of pane to update.
- * @param [in] bActive If TRUE activates pane, FALSE deactivates.
+ * @param [in] bActive If `true` activates pane, `false` deactivates.
  */
 void CEditorFilePathBar::SetActive(int pane, bool bActive)
 {
 	ASSERT (pane >= 0 && pane < countof(m_Edit));
 
-	// Check for NULL since window may be closing..
-	if (m_hWnd == NULL)
+	// Check for `nullptr` since window may be closing..
+	if (m_hWnd == nullptr)
 		return;
 
 	m_Edit[pane].SetActive(bActive);

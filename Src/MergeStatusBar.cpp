@@ -118,6 +118,14 @@ BOOL CMergeStatusBar::Create(CWnd* pParentWnd)
 	for (auto&& p : { PANE_PANE0_RO, PANE_PANE1_RO, PANE_PANE2_RO })
 		SetPaneText(p, sText.c_str(), TRUE);
 
+	for (int pane = 0; pane < 3; pane++)
+	{
+		SetPaneStyle(PANE_PANE0_INFO     + pane * nColumnsPerPane, SBPS_NORMAL);
+		SetPaneStyle(PANE_PANE0_ENCODING + pane * nColumnsPerPane, SBPS_OWNERDRAW);
+		SetPaneStyle(PANE_PANE0_RO       + pane * nColumnsPerPane, SBPS_NORMAL);
+		SetPaneStyle(PANE_PANE0_EOL      + pane * nColumnsPerPane, SBPS_OWNERDRAW);
+	}
+
 	return TRUE;
 };
 
@@ -132,7 +140,7 @@ void CMergeStatusBar::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 
 	if (!ptext[pcur].IsEmpty())
 		m_dispFlags[pbase] |= 1 << pcur;
-	const bool displayedAll = m_dispFlags[pbase] == (1 << m_nPanes) - 1;
+	const bool displayedAll = m_dispFlags[pbase] == static_cast<unsigned>((1 << m_nPanes) - 1);
 
 	if (displayedAll && m_bDiff[pbase] != diff)
 	{
@@ -155,7 +163,7 @@ void CMergeStatusBar::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 		dc.SetBkColor(m_cachedColors.clrWordDiff);
 		dc.ExtTextOut(
 			lpDrawItemStruct->rcItem.left, lpDrawItemStruct->rcItem.top,
-			ETO_OPAQUE, &lpDrawItemStruct->rcItem, _T(""), NULL );
+			ETO_OPAQUE, &lpDrawItemStruct->rcItem, _T(""), nullptr );
 	}
 	else
 	{

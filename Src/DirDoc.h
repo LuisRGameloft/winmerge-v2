@@ -26,7 +26,6 @@
 #pragma once
 
 #include <memory>
-#include <cstdint>
 #include "DiffThread.h"
 #include "PluginManager.h"
 
@@ -62,7 +61,7 @@ public:
 
 // Operations
 public:
-	BOOL CloseMergeDocs();
+	bool CloseMergeDocs();
 	CDirView * GetMainView() const;
 
 // Overrides
@@ -88,14 +87,14 @@ public:
 	void SetReportFile(const String& sReportFile) { m_sReportFile = sReportFile; }
 	bool GetGeneratingReport() const { return m_bGeneratingReport; }
 	void SetGeneratingReport(bool bGeneratingReport) { m_bGeneratingReport = bGeneratingReport; }
-	bool HasDirView() const { return m_pDirView != NULL; }
+	bool HasDirView() const { return m_pDirView != nullptr; }
 	void RefreshOptions();
 	void CompareReady();
-	void UpdateChangedItem(PathContext & paths,
-		UINT nDiffs, UINT nTrivialDiffs, BOOL bIdentical);
+	void UpdateChangedItem(const PathContext & paths,
+		UINT nDiffs, UINT nTrivialDiffs, bool bIdentical);
 	void UpdateResources();
 	void InitStatusStrings();
-	void ReloadItemStatus(uintptr_t diffPos, int idx);
+	void ReloadItemStatus(DIFFITEM *diffPos, int idx);
 	void Redisplay();
 	virtual ~CDirDoc();
 	void SetDirView( CDirView *newView ); // TODO Perry
@@ -110,10 +109,10 @@ public:
 	void SetDescriptions(const String strDesc[]);
 	void ApplyDisplayRoot(int nIndex, String &);
 
-	bool HasDiffs() const { return m_pCtxt != NULL; }
+	bool HasDiffs() const { return m_pCtxt != nullptr; }
 	const CDiffContext & GetDiffContext() const { return *m_pCtxt; }
 	CDiffContext& GetDiffContext() { return *m_pCtxt.get(); }
-	void SetMarkedRescan() {m_bMarkedRescan = TRUE; }
+	void SetMarkedRescan() {m_bMarkedRescan = true; }
 	const CompareStats * GetCompareStats() const { return m_pCompareStats.get(); };
 	bool IsArchiveFolders() const;
 	PluginManager& GetPluginManager() { return m_pluginman; };
@@ -142,6 +141,6 @@ private:
 	String m_strDesc[3]; /**< Left/middle/right side desription text */
 	String m_sReportFile;
 	PluginManager m_pluginman;
-	bool m_bMarkedRescan; /**< If TRUE next rescan scans only marked items */
+	bool m_bMarkedRescan; /**< If `true` next rescan scans only marked items */
 	bool m_bGeneratingReport;
 };

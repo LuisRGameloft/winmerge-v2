@@ -19,7 +19,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <tchar.h>
 #include <cassert>
 #include <memory>
-#include <cstdint>
 #include <Poco/UnicodeConverter.h>
 #include "UnicodeString.h"
 #include "ExConverter.h"
@@ -32,6 +31,9 @@ namespace ucr
 // store the default codepage as specified by user in options
 static int f_nDefaultCodepage = GetACP();
 
+
+# pragma warning(push)          // Saves the current warning state.
+# pragma warning(disable:4244)  // Temporarily disables warning 4244: "conversion from 'int' to 'char', possible loss of data"
 /**
  * @brief Convert unicode codepoint to UTF-8 byte string
  *
@@ -94,6 +96,7 @@ int Ucs4_to_Utf8(unsigned unich, unsigned char * utf8)
 		return 1;
 	}
 }
+# pragma warning(pop)           // Restores the warning state.
 
 /**
  * @brief Gets a length of UTF-8 character in bytes.
@@ -198,6 +201,9 @@ unsigned GetUtf8Char(unsigned char * str)
 	}
 }
 
+
+# pragma warning(push)          // Saves the current warning state.
+# pragma warning(disable:4244)  // Temporarily disables warning 4244: "conversion from 'int' to 'char', possible loss of data"
 /**
  * @brief Write unicode codepoint u out as UTF-8 to lpd, and advance lpd
  *
@@ -256,6 +262,7 @@ int to_utf8_advance(unsigned u, unsigned char * &lpd)
 		return 1;
 	}
 }
+# pragma warning(pop)           // Restores the warning state.
 
 /**
  * @brief convert character passed (Unicode codepoint) to a TCHAR (set lossy flag if imperfect conversion)
@@ -276,16 +283,16 @@ void maketchar(String & ch, unsigned unich, bool & lossy, unsigned codepage)
 #ifdef _UNICODE
 	if (unich < 0x10000)
 	{
-		ch = (TCHAR)unich;
+		ch = static_cast<TCHAR>(unich);
 		return;
 	}
 	else if (unich < 0x110000)
 	{
-		ch = ((unich - 0x10000)/0x400 + 0xd800);
-		ch += ((unich % 0x400) + 0xdc00);
+		ch = static_cast<TCHAR>(((unich - 0x10000)/0x400 + 0xd800));
+		ch += static_cast<TCHAR>(((unich % 0x400) + 0xdc00));
 		return;
 	}
-	lossy = TRUE;
+	lossy = true;
 	ch = '?';
 	return;
 #else
@@ -301,18 +308,18 @@ void maketchar(String & ch, unsigned unich, bool & lossy, unsigned codepage)
 		char outch[3] = {0};
 		BOOL defaulted = FALSE;
 		DWORD flags = WC_NO_BEST_FIT_CHARS;
-		if (WideCharToMultiByte(codepage, flags, &wch, 1, outch, sizeof(outch), NULL, &defaulted)
+		if (WideCharToMultiByte(codepage, flags, &wch, 1, outch, sizeof(outch), nullptr, &defaulted)
 				&& !defaulted)
 		{
 			ch = outch;
 			return;
 		}
-		lossy = TRUE;
+		lossy = true;
 	}
 	// already lossy, so make our best shot
 	DWORD flags = WC_COMPOSITECHECK + WC_DISCARDNS + WC_SEPCHARS + WC_DEFAULTCHAR;
 	TCHAR outbuff[16];
-	int n = WideCharToMultiByte(codepage, flags, &wch, 1, outbuff, sizeof(outbuff) - 1, NULL, NULL);
+	int n = WideCharToMultiByte(codepage, flags, &wch, 1, outbuff, sizeof(outbuff) - 1, nullptr, nullptr);
 	if (n > 0)
 	{
 		outbuff[n] = 0;
@@ -494,7 +501,7 @@ bool maketstring(String & str, const char* lpd, size_t len, int codepage, bool *
 			// good idea to ASSERT that the assumption holds.
 			if (wbuff[n-1] == 0 && lpd[len-1] != 0)
 			{
-				//assert(FALSE);
+				//assert(false);
 				*lossy = true;
 				--n;
 			}
@@ -523,7 +530,7 @@ bool maketstring(String & str, const char* lpd, size_t len, int codepage, bool *
 					*/
 					if (wbuff[n-1] == 0 && lpd[len-1] != 0)
 					{
-						//assert(FALSE);
+						//assert(false);
 						*lossy = true;
 						--n;
 					}
@@ -566,7 +573,7 @@ bool maketstring(String & str, const char* lpd, size_t len, int codepage, bool *
 	else
 	{
 		IExconverter *pexconv = Exconverter::getInstance();
-		if (pexconv)
+		if (pexconv != nullptr)
 		{
 			size_t n = wlen;
 			if (pexconv->convertToUnicode(codepage, lpd, &len, wbuff, &n))
@@ -618,7 +625,7 @@ bool maketstring(String & str, const char* lpd, size_t len, int codepage, bool *
 	else
 	{
 		IExconverter *pexconv = Exconverter::getInstance();
-		if (pexconv)
+		if (pexconv != nullptr)
 		{		
 			size_t n = len * 6 + 6;
 			try
@@ -726,7 +733,7 @@ int CrossConvert(const char* src, unsigned srclen, char* dest, unsigned destsize
 	if (cpout == CP_UTF8)
 	{
 		flags = 0;
-		pdefaulted = NULL;
+		pdefaulted = nullptr;
 	}
 	if (cpout == CP_UCS2LE)
 	{
@@ -744,7 +751,7 @@ int CrossConvert(const char* src, unsigned srclen, char* dest, unsigned destsize
 	}
 	else
 	{
-		n = WideCharToMultiByte(cpout, flags, wbuff.get(), n, dest, destsize - 1, NULL, pdefaulted);
+		n = WideCharToMultiByte(cpout, flags, wbuff.get(), n, dest, destsize - 1, nullptr, pdefaulted);
 		if (!n)
 		{
 			int nsyserr = ::GetLastError();
@@ -787,13 +794,13 @@ void buffer::resize(size_t newSize)
 	{
 		capacity = newSize;
 		unsigned char *tmp = static_cast<unsigned char *>(realloc(ptr, capacity));
-		if (!tmp)
+		if (tmp == nullptr)
 			throw std::bad_alloc();
 		ptr = tmp;
 	}
 }
 
-unsigned char *convertTtoUTF8(buffer * buf, LPCTSTR src, int srcbytes/* = -1*/)
+unsigned char *convertTtoUTF8(buffer * buf, const TCHAR *src, int srcbytes/* = -1*/)
 {
 	bool bSucceeded;
 #ifdef _UNICODE
@@ -810,14 +817,14 @@ unsigned char *convertTtoUTF8(buffer * buf, LPCTSTR src, int srcbytes/* = -1*/)
 	return buf->ptr;
 }
 
-unsigned char *convertTtoUTF8(LPCTSTR src, int srcbytes/* = -1*/)
+unsigned char *convertTtoUTF8(const TCHAR *src, int srcbytes/* = -1*/)
 {
 	buffer buf(256);
 	convertTtoUTF8(&buf, src, srcbytes);
 	return (unsigned char *)_strdup((const char *)buf.ptr);
 }
 
-TCHAR *convertUTF8toT(buffer * buf, LPCSTR src, int srcbytes/* = -1*/)
+TCHAR *convertUTF8toT(buffer * buf, const char *src, int srcbytes/* = -1*/)
 {
 	bool bSucceeded;
 #ifdef _UNICODE
@@ -834,7 +841,7 @@ TCHAR *convertUTF8toT(buffer * buf, LPCSTR src, int srcbytes/* = -1*/)
 	return (TCHAR *)buf->ptr;
 }
 
-TCHAR *convertUTF8toT(LPCSTR src, int srcbytes/* = -1*/)
+TCHAR *convertUTF8toT(const char *src, int srcbytes/* = -1*/)
 {
 	buffer buf(256);
 	convertUTF8toT(&buf, src, srcbytes);
@@ -990,16 +997,16 @@ bool convert(UNICODESET unicoding1, int codepage1, const unsigned char * src, si
 	{
 		// From UCS-2LE to 8-bit (or UTF-8)
 
-		// WideCharToMultiByte: lpDefaultChar & lpUsedDefaultChar must be NULL when using UTF-8
+		// WideCharToMultiByte: lpDefaultChar & lpUsedDefaultChar must be `nullptr` when using UTF-8
 
 		int destcp = (unicoding2 == UTF8 ? CP_UTF8 : codepage2);
 		if (destcp == CP_ACP || IsValidCodePage(destcp))
 		{
 			DWORD flags = 0;
-			int bytes = WideCharToMultiByte(destcp, flags, (LPCWSTR)src, static_cast<int>(srcbytes/2), 0, 0, NULL, NULL);
+			int bytes = WideCharToMultiByte(destcp, flags, (LPCWSTR)src, static_cast<int>(srcbytes/2), 0, 0, nullptr, nullptr);
 			dest->resize(bytes + 2);
 			int losses = 0;
-			bytes = WideCharToMultiByte(destcp, flags, (LPCWSTR)src, static_cast<int>(srcbytes/2), (char *)dest->ptr, static_cast<int>(dest->capacity), NULL, NULL);
+			bytes = WideCharToMultiByte(destcp, flags, (LPCWSTR)src, static_cast<int>(srcbytes/2), (char *)dest->ptr, static_cast<int>(dest->capacity), nullptr, nullptr);
 			dest->ptr[bytes] = 0;
 			dest->ptr[bytes+1] = 0;
 			dest->size = bytes;
@@ -1011,7 +1018,7 @@ bool convert(UNICODESET unicoding1, int codepage1, const unsigned char * src, si
 			size_t dstsize = srcbytes * 6; 
 			dest->resize(dstsize + 2);
 			IExconverter *pexconv = Exconverter::getInstance();
-			if (pexconv)
+			if (pexconv != nullptr)
 			{
 				bool result = pexconv->convertFromUnicode(destcp, (LPWSTR)src, &srcsize, (char *)dest->ptr, &dstsize);
 				dest->ptr[dstsize] = 0;
@@ -1044,7 +1051,7 @@ bool convert(UNICODESET unicoding1, int codepage1, const unsigned char * src, si
 			size_t dstsize = srcbytes; 
 			dest->resize((srcbytes + 1) * sizeof(wchar_t));
 			IExconverter *pexconv = Exconverter::getInstance();
-			if (pexconv)
+			if (pexconv != nullptr)
 			{
 				bool result = pexconv->convertToUnicode(srccp, (LPCSTR)src, &srcsize, (LPWSTR)dest->ptr, &dstsize);
 				dest->ptr[dstsize * sizeof(wchar_t)] = 0;
@@ -1070,7 +1077,7 @@ static void convert(const std::wstring& from, unsigned codepage, std::string& to
 	if (len)
 	{
 		to.resize(len);
-		WideCharToMultiByte(codepage, 0, from.c_str(), static_cast<int>(from.length()), &to[0], static_cast<int>(len), NULL, NULL);
+		WideCharToMultiByte(codepage, 0, from.c_str(), static_cast<int>(from.length()), &to[0], static_cast<int>(len), nullptr, nullptr);
 	}
 	else
 	{

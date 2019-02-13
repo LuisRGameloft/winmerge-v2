@@ -20,7 +20,12 @@
  * @brief Implementation for DiffFileInfo routines
  */
 
+#include "stdafx.h"
 #include "DiffFileInfo.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
 
 /**
  * @brief Clears FileInfo data.
@@ -37,5 +42,5 @@ void DiffFileInfo::ClearPartial()
  */
 bool DiffFileInfo::IsEditableEncoding() const
 {
-	return encoding.m_bom == false;
+	return !encoding.m_bom;
 }

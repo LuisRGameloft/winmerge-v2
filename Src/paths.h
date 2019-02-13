@@ -8,6 +8,10 @@
 #include "PathContext.h"
 #include "UnicodeString.h"
 
+#ifndef MAX_PATH_FULL
+#  define MAX_PATH_FULL 32767
+#endif
+
 namespace paths
 {
 
@@ -24,13 +28,13 @@ typedef enum
 
 bool EndsWithSlash(const String& s);
 
-PATH_EXISTENCE DoesPathExist(const String& szPath, bool (*IsArchiveFile)(const String&) = NULL);
+PATH_EXISTENCE DoesPathExist(const String& szPath, bool (*IsArchiveFile)(const String&) = nullptr);
 String FindFileName(const String& path);
 String FindExtension(const String& path);
 void normalize(String & sPath);
 String GetLongPath(const String& szPath, bool bExpandEnvs = true);
 bool CreateIfNeeded(const String& szPath);
-PATH_EXISTENCE GetPairComparability(const PathContext & paths, bool (*IsArchiveFile)(const String&) = NULL);
+PATH_EXISTENCE GetPairComparability(const PathContext & paths, bool (*IsArchiveFile)(const String&) = nullptr);
 bool IsDirectory(const String& path);
 bool IsShortcut(const String& inPath);
 String ExpandShortcut(const String &inFile);
@@ -40,7 +44,6 @@ String GetLastSubdir(const String & path);
 bool IsPathAbsolute(const String & path);
 String EnsurePathExist(const String & sPath);
 void SplitFilename(const String& s, String * path, String * name, String * ext);
-void SplitViewName(const TCHAR *s, String * path, String * name, String * ext);
 String GetPathOnly(const String& fullpath);
 bool IsURLorCLSID(const String& path);
 bool IsDecendant(const String& path, const String& ancestor);

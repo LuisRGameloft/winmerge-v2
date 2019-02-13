@@ -41,8 +41,8 @@ class SyntaxColors;
 class LineFiltersList;
 class TempFile;
 struct FileLocation;
-class SourceControl;
 class DropHandler;
+class CMainFrame;
 
 typedef std::shared_ptr<TempFile> TempFilePtr;
 
@@ -54,6 +54,8 @@ typedef CTypedPtrList<CPtrList, CHexMergeDoc *> HexMergeDocList;
 
 class PackingInfo;
 class CLanguageSelect;
+
+CMainFrame * GetMainFrame(); // access to the singleton main frame object
 
 /**
  * @brief Frame class containing save-routines etc
@@ -79,7 +81,7 @@ public:
 
 // Attributes
 public:	
-	BOOL m_bShowErrors; /**< Show folder compare error items? */
+	bool m_bShowErrors; /**< Show folder compare error items? */
 	LOGFONT m_lfDiff; /**< MergeView user-selected font */
 	LOGFONT m_lfDir; /**< DirView user-selected font */
 	static const TCHAR szClassName[];
@@ -95,16 +97,17 @@ public:
 	HMENU GetPrediffersSubmenu(HMENU mainMenu);
 	void UpdatePrediffersMenu();
 
-	BOOL DoFileOpen(const PathContext *pFiles = NULL,
-		const DWORD dwFlags[] = NULL, const String strDesc[] = NULL, const String& sReportFile = _T(""), bool bRecurse = false, CDirDoc *pDirDoc = NULL, String prediffer = _T(""), const PackingInfo * infoUnpacker = NULL);
+	void FileNew(int nPanes);
+	bool DoFileOpen(const PathContext *pFiles = nullptr,
+		const DWORD dwFlags[] = nullptr, const String strDesc[] = nullptr, const String& sReportFile = _T(""), bool bRecurse = false, CDirDoc *pDirDoc = nullptr, String prediffer = _T(""), const PackingInfo * infoUnpacker = nullptr);
 	bool ShowAutoMergeDoc(CDirDoc * pDirDoc, int nFiles, const FileLocation fileloc[],
-		const DWORD dwFlags[], const String strDesc[], const String& sReportFile = _T(""), const PackingInfo * infoUnpacker = NULL);
+		const DWORD dwFlags[], const String strDesc[], const String& sReportFile = _T(""), const PackingInfo * infoUnpacker = nullptr);
 	bool ShowMergeDoc(CDirDoc * pDirDoc, int nFiles, const FileLocation fileloc[],
-		const DWORD dwFlags[], const String strDesc[], const String& sReportFile = _T(""), const PackingInfo * infoUnpacker = NULL);
+		const DWORD dwFlags[], const String strDesc[], const String& sReportFile = _T(""), const PackingInfo * infoUnpacker = nullptr);
 	bool ShowHexMergeDoc(CDirDoc * pDirDoc, int nFiles, const FileLocation fileloc[],
-		const DWORD dwFlags[], const String strDesc[], const String& sReportFile = _T(""), const PackingInfo * infoUnpacker = NULL);
+		const DWORD dwFlags[], const String strDesc[], const String& sReportFile = _T(""), const PackingInfo * infoUnpacker = nullptr);
 	bool ShowImgMergeDoc(CDirDoc * pDirDoc, int nFiles, const FileLocation fileloc[],
-		const DWORD dwFlags[], const String strDesc[], const String& sReportFile = _T(""), const PackingInfo * infoUnpacker = NULL);
+		const DWORD dwFlags[], const String strDesc[], const String& sReportFile = _T(""), const PackingInfo * infoUnpacker = nullptr);
 
 	void UpdateResources();
 	void ClearStatusbarItemCount();
@@ -112,7 +115,7 @@ public:
 	void SelectFilter();
 	void StartFlashing();
 	bool AskCloseConfirmation();
-	BOOL DoOpenConflict(const String& conflictFile, const String strDesc[] = nullptr, bool checked = false);
+	bool DoOpenConflict(const String& conflictFile, const String strDesc[] = nullptr, bool checked = false);
 	FRAMETYPE GetFrameType(const CFrameWnd * pFrame) const;
 	void UpdateDocTitle();
 	void ReloadMenu();
@@ -136,7 +139,7 @@ protected:
 
 // Public implementation data
 public:
-	BOOL m_bFirstTime; /**< If first time frame activated, get  pos from reg */
+	bool m_bFirstTime; /**< If first time frame activated, get  pos from reg */
 
 // Implementation data
 protected:
@@ -147,6 +150,40 @@ protected:
 	CReBar m_wndReBar;
 	CToolBar m_wndToolBar;
 	CMDITabBar m_wndTabBar;
+
+	// Tweak MDI client window behavior
+	class CMDIClient : public CWnd
+	{
+		static UINT_PTR const m_nRedrawTimer = 1612;
+		virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
+		{
+			switch (message)
+			{
+			case WM_MDICREATE:
+			case WM_MDIACTIVATE:
+			case WM_MDINEXT:
+				// To reduce flicker in maximized state, disable drawing while messing with MDI child frames
+				BOOL bMaximized;
+				if (SendMessage(WM_MDIGETACTIVE, 0, reinterpret_cast<LPARAM>(&bMaximized))
+					&& bMaximized && SetTimer(m_nRedrawTimer, USER_TIMER_MINIMUM, nullptr))
+				{
+					SetRedraw(FALSE);
+				}
+				break;
+			case WM_TIMER:
+				if (wParam == m_nRedrawTimer)
+				{
+					KillTimer(m_nRedrawTimer);
+					SetRedraw(TRUE);
+					RedrawWindow(NULL, NULL, RDW_ALLCHILDREN | RDW_INVALIDATE);
+					GetMainFrame()->GetActiveFrame()->OnUpdateFrameTitle(TRUE);
+					GetMainFrame()->SendMessageToDescendants(WM_IDLEUPDATECMDUI, (WPARAM)TRUE, 0, TRUE, TRUE);
+				}
+				break;
+			}
+			return CWnd::WindowProc(message, wParam, lParam);
+		}
+	} m_wndMDIClient;
 
 	/** @brief Toolbar image table indexes. */
 	enum TOOLBAR_IMAGES
@@ -206,11 +243,8 @@ protected:
 	afx_msg void OnHelpGnulicense();
 	afx_msg void OnOptions();
 	afx_msg void OnViewSelectfont();
-	afx_msg void OnUpdateViewSelectfont(CCmdUI* pCmdUI);
 	afx_msg void OnViewUsedefaultfont();
-	afx_msg void OnUpdateViewUsedefaultfont(CCmdUI* pCmdUI);
 	afx_msg void OnHelpContents();
-	afx_msg void OnUpdateHelpContents(CCmdUI* pCmdUI);
 	afx_msg void OnClose();
 	afx_msg void OnToolsGeneratePatch();
 	afx_msg void OnDropFiles(const std::vector<String>& files);
@@ -229,7 +263,7 @@ protected:
 	afx_msg void OnViewTabBar();
 	afx_msg void OnUpdateResizePanes(CCmdUI* pCmdUI);
 	afx_msg void OnResizePanes();
-	afx_msg void OnFileOpenproject();
+	afx_msg void OnFileOpenProject();
 	afx_msg LRESULT OnCopyData(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnUser1(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnWindowCloseAll();
@@ -267,7 +301,6 @@ protected:
 
 private:
 	void addToMru(LPCTSTR szItem, LPCTSTR szRegSubKey, UINT nMaxItems = 20);
-	void FileNew(int nPanes);
 	OpenDocList &GetAllOpenDocs();
 	MergeDocList &GetAllMergeDocs();
 	DirDocList &GetAllDirDocs();
@@ -278,5 +311,3 @@ private:
 	void LoadToolbarImages();
 	HMENU NewMenu( int view, int ID );
 };
-
-CMainFrame * GetMainFrame(); // access to the singleton main frame object

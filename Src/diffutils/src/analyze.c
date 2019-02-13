@@ -21,18 +21,24 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    "An O(ND) Difference Algorithm and its Variations", Eugene Myers,
    Algorithmica Vol. 1 No. 2, 1986, pp. 251-266;
    see especially section 4.2, which describes the variation used below.
+
    Unless the --minimal option is specified, this code uses the TOO_EXPENSIVE
    heuristic, by Paul Eggert, to limit the cost to O(N**1.5 log N)
    at the price of producing suboptimal output for large inputs with
-   many differences.
+   many differences.  Related algorithms are surveyed by Alfred V. Aho in
+   section 6.3 of 'Algorithms for Finding Patterns in Strings',
+   Handbook of Theoretical Computer Science (Jan Van Leeuwen,
+   ed.), Vol. A, Algorithms and Complexity, Elsevier/MIT Press,
+   1990, pp. 255--300.
 
    The basic algorithm was independently discovered as described in:
-   "Algorithms for Approximate String Matching", E. Ukkonen,
-   Information and Control Vol. 64, 1985, pp. 100-118.  */
+   "Algorithms for Approximate String Matching", Esko Ukkonen,
+   Information and Control Vol. 64, 1985, pp. 100-118.  
+*/
 
 #include "diff.h"
 #include "cmpbuf.h"
-#include <cassert>
+#include <assert.h>
 #ifdef _WIN32
 #  include <io.h>
 #endif
@@ -749,7 +755,7 @@ add_change (int line0, int line1, int deleted, int inserted, struct change *old)
 static struct change *
 build_reverse_script (struct file_data const filevec[])
 {
-  struct change *script = 0;
+  struct change *script = NULL;
   char *changed0 = filevec[0].changed_flag;
   char *changed1 = filevec[1].changed_flag;
   int len0 = filevec[0].buffered_lines;
@@ -786,7 +792,7 @@ build_reverse_script (struct file_data const filevec[])
 static struct change *
 build_script (struct file_data const filevec[])
 {
-  struct change *script = 0;
+  struct change *script = NULL;
   char *changed0 = filevec[0].changed_flag;
   char *changed1 = filevec[1].changed_flag;
   int i0 = filevec[0].buffered_lines, i1 = filevec[1].buffered_lines;
@@ -826,11 +832,11 @@ briefly_report (int changes, struct file_data const filevec[])
 
 //  Report the differences of two files.  DEPTH is the current directory
 // depth. 
-// WinMerge: add moved_blocks_flag for detecting moved blocks and
+// WinMerge: add bMoved_blocks_flag for detecting moved blocks and
 // bin_file for getting info which file is binary file (can be NULL)
 // Winmerge: assume S_ISREG() files, not pipes, directories or devices
 struct change * diff_2_files (struct file_data filevec[], int depth, int * bin_status,
-	int moved_blocks_flag, int * bin_file)
+	int bMoved_blocks_flag, int * bin_file)
 {
 	int diags;
 	int i;
@@ -947,12 +953,13 @@ struct change * diff_2_files (struct file_data filevec[], int depth, int * bin_s
 		bdiag += filevec[1].nondiscarded_lines + 1;
 		
       /* Set TOO_EXPENSIVE to be approximate square root of input size,
-	 bounded below by 256.  */
+	     bounded below by 4096.  4096 seems to be good for circa-2016 CPUs 
+	  */
         too_expensive = 1;
         for (i = filevec[0].nondiscarded_lines + filevec[1].nondiscarded_lines;
 	         i != 0; i >>= 2)
 		  too_expensive <<= 1;
-        too_expensive = max (256, too_expensive);
+        too_expensive = max (4096, too_expensive);
 
 		files[0] = filevec[0];
 		files[1] = filevec[1];
@@ -996,7 +1003,7 @@ struct change * diff_2_files (struct file_data filevec[], int depth, int * bin_s
 				//  Disconnect them from the rest of the changes, making them
 				// a hunk, and remember the rest for next iteration.  
 				next = end->link;
-				end->link = 0;
+				end->link = NULL;
 				
 				//  Determine whether thisob hunk is really a difference.  
 				analyze_hunk (thisob, &first0, &last0, &first1, &last1,
@@ -1012,11 +1019,11 @@ struct change * diff_2_files (struct file_data filevec[], int depth, int * bin_s
 		}
 		else
 		{
-			changes = (script != 0);
+			changes = (script != NULL);
 		}
 
 		/* WinMerge moved block support */
-		if (moved_blocks_flag)
+		if (bMoved_blocks_flag)
 		{
 			moved_block_analysis(&script, filevec);
 		}

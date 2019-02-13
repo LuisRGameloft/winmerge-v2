@@ -17,10 +17,11 @@ class COptionsMgr;
 class CRegOptionsMgr: public COptionsMgr
 {
 public:
-	CRegOptionsMgr() : m_serializing(true) { }
+	CRegOptionsMgr() : m_serializing(true), m_bCloseHandle(false) { }
 	virtual ~CRegOptionsMgr() { }
 	int LoadOption(const String& name);
 	int SetRegRootKey(const String& path);
+	void CloseHandles();
 
 	virtual int InitOption(const String& name, const varprop::VariantValue& defaultValue);
 	virtual int InitOption(const String& name, const String& defaultValue);
@@ -39,7 +40,7 @@ public:
 
 	virtual void SetSerializing(bool serializing=true) { m_serializing = serializing; }
 
-	virtual int ExportOptions(const String& filename) const;
+	virtual int ExportOptions(const String& filename, const bool bHexColor=false) const;
 	virtual int ImportOptions(const String& filename);
 
 protected:
@@ -52,4 +53,6 @@ protected:
 private:
 	String m_registryRoot; /**< Registry path where to store options. */
 	bool m_serializing;
+	std::map<String, HKEY> m_hKeys;
+	bool m_bCloseHandle;
 };

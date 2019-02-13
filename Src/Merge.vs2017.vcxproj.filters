@@ -16,9 +16,6 @@
     <Filter Include="EditLib">
       <UniqueIdentifier>{84d4664c-e7ea-4d24-8d55-b1303c40b7f4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="DiffEngine">
-      <UniqueIdentifier>{16e1af2b-75c9-4deb-b49f-819018df0478}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ChangeLogs">
       <UniqueIdentifier>{aefb7247-d6e5-411d-9cc5-4a12f5efda4a}</UniqueIdentifier>
     </Filter>
@@ -55,6 +52,15 @@
     </Filter>
     <Filter Include="Boost\config\compiler">
       <UniqueIdentifier>{48b82f25-08b5-43e5-bc19-abd5bf4f0ea7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GNU diffutils">
+      <UniqueIdentifier>{16e1af2b-75c9-4deb-b49f-819018df0478}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MergeTest">
+      <UniqueIdentifier>{63f0497b-0d8f-4660-b727-dac620d74635}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MergeTest\gtest">
+      <UniqueIdentifier>{67c954df-e54f-4070-9c75-68ef52a00e03}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -226,49 +232,43 @@
     <ClCompile Include="Common\varprop.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="VSSHelper.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="diffutils\src\analyze.c">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="diffutils\lib\cmpbuf.c">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="diffutils\src\context.c">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="diffutils\src\Diff.cpp">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="diffutils\src\ed.c">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="diffutils\GnuVersion.c">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="diffutils\src\ifdef.c">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="diffutils\src\io.c">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="diffutils\src\normal.c">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="diffutils\src\side.c">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="diffutils\src\util.c">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="CompareEngines\ByteComparator.cpp">
       <Filter>Compare Engines</Filter>
     </ClCompile>
     <ClCompile Include="CompareEngines\ByteCompare.cpp">
-      <Filter>Compare Engines</Filter>
-    </ClCompile>
-    <ClCompile Include="CompareEngines\DiffUtils.cpp">
       <Filter>Compare Engines</Filter>
     </ClCompile>
     <ClCompile Include="CompareEngines\TimeSizeCompare.cpp">
@@ -562,9 +562,6 @@
     <ClCompile Include="OptionsDiffOptions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PropVss.cpp">
-      <Filter>MFCGui\Dialogs\PropertyPages</Filter>
-    </ClCompile>
     <ClCompile Include="PropArchive.cpp">
       <Filter>MFCGui\Dialogs\PropertyPages</Filter>
     </ClCompile>
@@ -664,9 +661,6 @@
     <ClCompile Include="OptionsCustomColors.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Merge7zFormatShellImpl.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ImgMergeFrm.cpp">
       <Filter>MFCGui\Source Files</Filter>
     </ClCompile>
@@ -684,9 +678,6 @@
     </ClCompile>
     <ClCompile Include="PropCompareBinary.cpp">
       <Filter>MFCGui\Dialogs\PropertyPages</Filter>
-    </ClCompile>
-    <ClCompile Include="SourceControl.cpp">
-      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DirViewColItems.cpp">
       <Filter>Source Files</Filter>
@@ -733,17 +724,11 @@
     <ClCompile Include="Common\Picture.cpp">
       <Filter>MFCGui\Common</Filter>
     </ClCompile>
-    <ClCompile Include="VssPromptDlg.cpp">
-      <Filter>MFCGui\Dialogs</Filter>
-    </ClCompile>
     <ClCompile Include="Common\ShellContextMenu.cpp">
       <Filter>MFCGui\Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\PropertyPageHost.cpp">
       <Filter>MFCGui\Common</Filter>
-    </ClCompile>
-    <ClCompile Include="CCPromptDlg.cpp">
-      <Filter>MFCGui\Dialogs</Filter>
     </ClCompile>
     <ClCompile Include="TrDialogs.cpp">
       <Filter>MFCGui\Source Files</Filter>
@@ -751,14 +736,8 @@
     <ClCompile Include="MergeStatusBar.cpp">
       <Filter>MFCGui\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Test.cpp">
-      <Filter>MFCGui\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="TestMain.cpp">
-      <Filter>MFCGui\Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="diffutils\src\mystat.cpp">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClCompile>
     <ClCompile Include="..\Externals\crystaledit\editlib\go.cpp">
       <Filter>EditLib\parsers</Filter>
@@ -777,6 +756,27 @@
     </ClCompile>
     <ClCompile Include="Common\VersionInfo.cpp">
       <Filter>MFCGui\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="MergeEditSplitterView.cpp">
+      <Filter>MFCGui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompareEngines\Wrap_DiffUtils.cpp">
+      <Filter>Compare Engines</Filter>
+    </ClCompile>
+    <ClCompile Include="Test.cpp">
+      <Filter>MergeTest</Filter>
+    </ClCompile>
+    <ClCompile Include="TestMain.cpp">
+      <Filter>MergeTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Externals\gtest\src\gtest-all.cc">
+      <Filter>MergeTest\gtest</Filter>
+    </ClCompile>
+    <ClCompile Include="Merge7zFormatShellImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Externals\crystaledit\editlib\wcwidth.cpp">
+      <Filter>EditLib</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -948,9 +948,6 @@
     <ClInclude Include="Common\ShellFileOperations.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ssapi.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="stringdiffs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -975,28 +972,22 @@
     <ClInclude Include="Common\varprop.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="VSSHelper.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="diffutils\lib\cmpbuf.h">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClInclude>
     <ClInclude Include="diffutils\config.h">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClInclude>
     <ClInclude Include="diffutils\src\diff.h">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClInclude>
     <ClInclude Include="diffutils\src\system.h">
-      <Filter>DiffEngine</Filter>
+      <Filter>GNU diffutils</Filter>
     </ClInclude>
     <ClInclude Include="CompareEngines\ByteComparator.h">
       <Filter>Compare Engines</Filter>
     </ClInclude>
     <ClInclude Include="CompareEngines\ByteCompare.h">
-      <Filter>Compare Engines</Filter>
-    </ClInclude>
-    <ClInclude Include="CompareEngines\DiffUtils.h">
       <Filter>Compare Engines</Filter>
     </ClInclude>
     <ClInclude Include="CompareEngines\TimeSizeCompare.h">
@@ -1122,6 +1113,9 @@
     <ClInclude Include="HexMergeFrm.h">
       <Filter>MFCGui\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="heksedit.h">
+      <Filter>MFCGui\Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="HexMergeDoc.h">
       <Filter>MFCGui\Header Files</Filter>
     </ClInclude>
@@ -1201,9 +1195,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="PropArchive.h">
-      <Filter>MFCGui\Dialogs\PropertyPages</Filter>
-    </ClInclude>
-    <ClInclude Include="PropVss.h">
       <Filter>MFCGui\Dialogs\PropertyPages</Filter>
     </ClInclude>
     <ClInclude Include="PropBackups.h">
@@ -1302,9 +1293,6 @@
     <ClInclude Include="7zCommon.h">
       <Filter>MFCGui\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Merge7zFormatShellImpl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ImgMergeFrm.h">
       <Filter>MFCGui\Header Files</Filter>
     </ClInclude>
@@ -1334,12 +1322,6 @@
     </ClInclude>
     <ClInclude Include="PropCompareBinary.h">
       <Filter>MFCGui\Dialogs\PropertyPages</Filter>
-    </ClInclude>
-    <ClInclude Include="CCPromptDlg.h">
-      <Filter>MFCGui\Dialogs</Filter>
-    </ClInclude>
-    <ClInclude Include="VssPromptDlg.h">
-      <Filter>MFCGui\Dialogs</Filter>
     </ClInclude>
     <ClInclude Include="Common\SuperComboBox.h">
       <Filter>MFCGui\Common</Filter>
@@ -1398,9 +1380,6 @@
     <ClInclude Include="Constants.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SourceControl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="OptionsInit.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -1408,9 +1387,6 @@
       <Filter>MFCGui\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MergeStatusBar.h">
-      <Filter>MFCGui\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TestMain.h">
       <Filter>MFCGui\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\Externals\crystaledit\editlib\ccrystaltextmarkers.h">
@@ -1436,6 +1412,33 @@
     </ClInclude>
     <ClInclude Include="Common\VersionInfo.h">
       <Filter>MFCGui\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="MergeEditSplitterView.h">
+      <Filter>MFCGui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CompareEngines\Wrap_DiffUtils.h">
+      <Filter>Compare Engines</Filter>
+    </ClInclude>
+    <ClInclude Include="TestMain.h">
+      <Filter>MergeTest</Filter>
+    </ClInclude>
+    <ClInclude Include="Win_VersionHelper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Externals\gtest\include\gtest\gtest.h">
+      <Filter>MergeTest\gtest</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Externals\gtest\include\gtest\gtest-printers.h">
+      <Filter>MergeTest\gtest</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Externals\gtest\include\gtest\internal\gtest-port.h">
+      <Filter>MergeTest\gtest</Filter>
+    </ClInclude>
+    <ClInclude Include="Merge7zFormatShellImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Externals\crystaledit\editlib\wcwidth.h">
+      <Filter>EditLib</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

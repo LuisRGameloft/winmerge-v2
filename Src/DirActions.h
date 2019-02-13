@@ -6,8 +6,8 @@
 #include "paths.h"
 #include "IntToIntMap.h"
 #include <algorithm>
+#include "FileTransform.h"
 
-struct DIFFITEM;
 class CDiffContext;
 class PathContext;
 class PluginManager;
@@ -16,8 +16,8 @@ class CTempPathContext;
 
 /**
  * @brief Folder compare icon indexes.
- * This enum defines indexes for imagelist used for folder compare icons.
- * Note that this enum must be in synch with code in OnInitialUpdate() and
+ * This `enum` defines indexes for the imagelist used for folder/file compare icons.
+ * Note that this enum must be in synch with code in CDirView::OnInitialUpdate() and
  * GetColImage(). Also remember that icons are in resource file...
  */
 enum
@@ -30,6 +30,7 @@ enum
 	DIFFIMG_RMISSING,
 	DIFFIMG_DIFF,
 	DIFFIMG_SAME,
+	DIFFIMG_FILE,
 	DIFFIMG_BINSAME,
 	DIFFIMG_BINDIFF,
 	DIFFIMG_LDIRUNIQUE,
@@ -70,19 +71,6 @@ typedef enum {
 	UPDATEITEM_UPDATE,
 	UPDATEITEM_REMOVE
 } UPDATEITEM_TYPE;
-
-struct ViewCustomFlags
-{
-	enum
-	{
-		// We use extra bits so that no valid values are 0
-		// and each set of flags is in a different hex digit
-		// to make debugging easier
-		// These can always be packed down in the future
-		INVALID_CODE = 0,
-		VISIBILITY = 0x3, VISIBLE = 0x1, HIDDEN = 0x2, EXPANDED = 0x4
-	};
-};
 
 struct AllowUpwardDirectory
 {
@@ -141,31 +129,31 @@ String FormatMenuItemStringDifferencesTo(int count, int total);
 void ConfirmActionList(const CDiffContext& ctxt, const FileActionScript & actionList);
 UPDATEITEM_TYPE UpdateDiffAfterOperation(const FileActionItem & act, CDiffContext& ctxt, DIFFITEM &di);
 
-uintptr_t FindItemFromPaths(const CDiffContext& ctxt, const String& pathLeft, const String& pathRight);
+DIFFITEM *FindItemFromPaths(const CDiffContext& ctxt, const PathContext& paths);
 
-bool IsItemCopyable(const DIFFITEM & di, int index);
-bool IsItemDeletable(const DIFFITEM & di, int index);
-bool IsItemDeletableOnBoth(const CDiffContext& ctxt, const DIFFITEM & di);
-bool AreItemsOpenable(const CDiffContext& ctxt, SELECTIONTYPE selectionType, const DIFFITEM & di1, const DIFFITEM & di2);
-bool AreItemsOpenable(const CDiffContext& ctxt, const DIFFITEM & di1, const DIFFITEM & di2, const DIFFITEM & di3);
-bool IsItemOpenableOn(const DIFFITEM & di, int index);
-bool IsItemOpenableOnWith(const DIFFITEM & di, int index);
-bool IsItemCopyableToOn(const DIFFITEM & di, int index);
-bool IsItemNavigableDiff(const CDiffContext& ctxt, const DIFFITEM & di);
-bool IsItemExistAll(const CDiffContext& ctxt, const DIFFITEM & di);
-bool IsShowable(const CDiffContext& ctxt, const DIFFITEM & di, const DirViewFilterSettings& filter);
+bool IsItemCopyable(const DIFFITEM &di, int index);
+bool IsItemDeletable(const DIFFITEM &di, int index);
+bool IsItemDeletableOnBoth(const CDiffContext& ctxt, const DIFFITEM &di);
+bool AreItemsOpenable(const CDiffContext& ctxt, SELECTIONTYPE selectionType, const DIFFITEM &di1, const DIFFITEM &di2);
+bool AreItemsOpenable(const CDiffContext& ctxt, const DIFFITEM &di1, const DIFFITEM &di2, const DIFFITEM &di3);
+bool IsItemOpenableOn(const DIFFITEM &di, int index);
+bool IsItemOpenableOnWith(const DIFFITEM &di, int index);
+bool IsItemCopyableToOn(const DIFFITEM &di, int index);
+bool IsItemNavigableDiff(const CDiffContext& ctxt, const DIFFITEM &di);
+bool IsItemExistAll(const CDiffContext& ctxt, const DIFFITEM &di);
+bool IsShowable(const CDiffContext& ctxt, const DIFFITEM &di, const DirViewFilterSettings& filter);
 
-bool GetOpenOneItem(const CDiffContext& ctxt, uintptr_t pos1, const DIFFITEM *pdi[3],
+bool GetOpenOneItem(const CDiffContext& ctxt, DIFFITEM *pos1, const DIFFITEM *pdi[3],
 		PathContext &paths, int & sel1, bool & isDir, int nPane[3], String& errmsg);
-bool GetOpenTwoItems(const CDiffContext& ctxt, SELECTIONTYPE selectionType, uintptr_t pos1, uintptr_t pos2, const DIFFITEM *pdi[3],
+bool GetOpenTwoItems(const CDiffContext& ctxt, SELECTIONTYPE selectionType, DIFFITEM *pos1, DIFFITEM *pos2, const DIFFITEM *pdi[3],
 		PathContext &paths, int & sel1, int & sel2, bool & isDir, int nPane[3], String& errmsg);
-bool GetOpenThreeItems(const CDiffContext& ctxt, uintptr_t pos1, uintptr_t pos2, uintptr_t pos3, const DIFFITEM *pdi[3],
+bool GetOpenThreeItems(const CDiffContext& ctxt, DIFFITEM *pos1, DIFFITEM *pos2, DIFFITEM *pos3, const DIFFITEM *pdi[3],
 		PathContext &paths, int & sel1, int & sel2, int & sel3, bool & isDir, int nPane[3], String& errmsg);
 
 void GetItemFileNames(const CDiffContext& ctxt, const DIFFITEM& di, String& strLeft, String& strRight);
 PathContext GetItemFileNames(const CDiffContext& ctxt, const DIFFITEM& di);
-String GetItemFileName(const CDiffContext& ctx, const DIFFITEM & di, int index);
-int GetColImage(const DIFFITEM & di);
+String GetItemFileName(const CDiffContext& ctx, const DIFFITEM &di, int index);
+int GetColImage(const DIFFITEM &di);
 
 void SetDiffStatus(DIFFITEM& di, unsigned  diffcode, unsigned mask);
 void SetDiffCompare(DIFFITEM& di, unsigned diffcode);
@@ -217,7 +205,7 @@ struct DirActions
 	typedef bool (DirActions::*method_type2)(const DIFFITEM& di) const;
 	typedef FileActionScript *(DirActions::*method_type)(FileActionScript *, const std::pair<int, const DIFFITEM *>& it) const;
 
-	DirActions(const CDiffContext& ctxt, const bool RO[], method_type func = NULL, method_type2 func2 = NULL) : 
+	DirActions(const CDiffContext& ctxt, const bool RO[], method_type func = nullptr, method_type2 func2 = nullptr) : 
 		m_ctxt(ctxt), m_RO(RO), m_cur_method(func), m_cur_method2(func2) {}
 
 	template <SIDE_TYPE src, SIDE_TYPE dst>
@@ -483,7 +471,7 @@ struct DirActions
 		return ((*this).*m_cur_method)(pscript, it);
 	}
 
-	bool operator()(const DIFFITEM & di) const
+	bool operator()(const DIFFITEM &di) const
 	{
 		return ((*this).*m_cur_method2)(di);
 	}
@@ -651,10 +639,12 @@ void ApplyFolderNameAndFileName(const InputIterator& begin, const InputIterator&
  * @brief Apply specified setting for prediffing to all selected items
  */
 template<class InputIterator>
-void ApplyPluginPrediffSetting(const InputIterator& begin, const InputIterator& end, const CDiffContext& ctxt, int newsetting)
+void ApplyPluginPrediffSetting(const InputIterator& begin, const InputIterator& end, const CDiffContext& ctxt, PLUGIN_MODE newsetting)
 {
 	// Unlike other group actions, here we don't build an action list
 	// to execute; we just apply this change directly
+	if( !ctxt.m_bPluginsEnabled || ctxt.m_piPluginInfos == nullptr )
+		return;
 	for (InputIterator it = begin; it != end; ++it)
 	{
 		const DIFFITEM& di = *it;
@@ -669,8 +659,8 @@ void ApplyPluginPrediffSetting(const InputIterator& begin, const InputIterator& 
 					filteredFilenames += ::GetItemFileName(ctxt, di, i);
 				}
 			}
-			PackingInfo * infoUnpacker = 0;
-			PrediffingInfo * infoPrediffer = 0;
+			PackingInfo * infoUnpacker = nullptr;
+			PrediffingInfo * infoPrediffer = nullptr;
 			const_cast<CDiffContext&>(ctxt).FetchPluginInfos(filteredFilenames, &infoUnpacker, &infoPrediffer);
 			infoPrediffer->Initialize(newsetting);
 		}
@@ -685,6 +675,8 @@ std::pair<int, int> CountPredifferYesNo(const InputIterator& begin, const InputI
 {
 	int nPredifferYes = 0;
 	int nPredifferNo = 0;
+	if( !ctxt.m_bPluginsEnabled || ctxt.m_piPluginInfos == nullptr ) 
+		return std::make_pair(nPredifferYes, nPredifferNo);
 
 	for (InputIterator it = begin; it != end; ++it)
 	{
@@ -696,12 +688,12 @@ std::pair<int, int> CountPredifferYesNo(const InputIterator& begin, const InputI
 		if (!di.diffcode.isDirectory() && !di.diffcode.isBin() && IsItemExistAll(ctxt, di)
 			&& !di.diffcode.isResultFiltered())
 		{
-			PathContext files = GetItemFileNames(ctxt, di);
-			String filteredFilenames = strutils::join(files.begin(), files.end(), _T("|"));
+			PathContext tFiles = GetItemFileNames(ctxt, di);
+			String filteredFilenames = strutils::join(tFiles.begin(), tFiles.end(), _T("|"));
 			PackingInfo * unpacker;
 			PrediffingInfo * prediffer;
 			const_cast<CDiffContext&>(ctxt).FetchPluginInfos(filteredFilenames, &unpacker, &prediffer);
-			if (prediffer->bToBeScanned == 1 || prediffer->pluginName.empty() == false)
+			if (prediffer->m_PluginOrPredifferMode == PLUGIN_AUTO || !prediffer->m_PluginName.empty())
 				nPredifferYes ++;
 			else
 				nPredifferNo ++;

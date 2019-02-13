@@ -16,7 +16,7 @@
 
 struct PAGEITEM
 {
-	PAGEITEM(CPropertyPage* _pPage = NULL, LPCTSTR szTitle = NULL, DWORD dwData = 0) : 
+	PAGEITEM(CPropertyPage* _pPage = nullptr, LPCTSTR szTitle = nullptr, DWORD dwData = 0) : 
 			pPage(_pPage), sTitle(szTitle), dwItemData(dwData) {}
 
 	CPropertyPage* pPage;
@@ -37,9 +37,9 @@ public:
 	
 	int GetActiveIndex();
 	CPropertyPage* GetActivePage();
-	BOOL AddPage(CPropertyPage* pPage, LPCTSTR szTitle = NULL, DWORD dwItemData = 0);
-	BOOL SetActivePage(int nIndex, BOOL bAndFocus = TRUE);
-	BOOL SetActivePage(CPropertyPage* pPage, BOOL bAndFocus = TRUE);
+	bool AddPage(CPropertyPage* pPage, LPCTSTR szTitle = nullptr, DWORD dwItemData = 0);
+	bool SetActivePage(int nIndex, bool bAndFocus = true);
+	bool SetActivePage(CPropertyPage* pPage, bool bAndFocus = true);
 	int GetPageCount() { return (int) m_aPages.GetSize(); }
 	CString GetPageTitle(int nIndex);
 	DWORD GetPageItemData(int nIndex);

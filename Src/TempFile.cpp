@@ -8,8 +8,8 @@
 #include "TempFile.h"
 #include <windows.h>
 #include <tlhelp32.h> 
-#include <shlwapi.h>
 #include "paths.h"
+#include "TFile.h"
 #include "Environment.h"
 #include "Constants.h"
 #include "unicoder.h"
@@ -46,7 +46,7 @@ String TempFile::Create(const String& prefix, const String& ext)
 	if (pref.empty())
 		pref = _T("wmtmp");
 
-	temp = env::GetTemporaryFileName(temp, pref, NULL);
+	temp = env::GetTemporaryFileName(temp, pref, nullptr);
 	if (!temp.empty())
 	{
 		if (!ext.empty())
@@ -81,12 +81,13 @@ String TempFile::CreateFromFile(const String& filepath, const String& prefix)
 	if (pref.empty())
 		pref = _T("wmtmp");
 
-	temp = env::GetTemporaryFileName(temp, pref, NULL);
+	temp = env::GetTemporaryFileName(temp, pref, nullptr);
 	if (!temp.empty())
 	{
 		// Scratchpads don't have a file to copy.
 		m_path = temp;
-		if (::CopyFile(filepath.c_str(), temp.c_str(), FALSE))
+
+		if (::CopyFileW(TFile(filepath).wpath().c_str(), temp.c_str(), FALSE))
 		{
 			::SetFileAttributes(temp.c_str(), FILE_ATTRIBUTE_NORMAL);
 		}
@@ -105,7 +106,7 @@ bool TempFile::Delete()
 		success = !!DeleteFile(m_path.c_str());
 	if (success)
 		m_path = _T("");
-	return !!success;
+	return success;
 }
 /** 
  * @brief Cleanup tempfiles created by WinMerge.
@@ -123,11 +124,11 @@ void CleanupWMtemp()
 	pEntry.dwSize = sizeof(pEntry);
 
 	// Get first process
-	bool hRes = !!Process32First (hSnapShot, &pEntry);
+	bool bRes = !!Process32First (hSnapShot, &pEntry);
 
 	// Iterate through all processes to get
 	// the ProcessIDs of all running WM instances
-	while (hRes)
+	while (bRes)
 	{
 		size_t exeFileLen = _tcslen(pEntry.szExeFile);
 		if ((exeFileLen >= sizeof(ExecutableFilenameU)/sizeof(TCHAR)-1 && _tcsicmp(pEntry.szExeFile + exeFileLen - (sizeof(ExecutableFilenameU)/sizeof(TCHAR)-1), ExecutableFilenameU) == 0) ||
@@ -135,7 +136,7 @@ void CleanupWMtemp()
 		{
 			processIDs.push_back(pEntry.th32ProcessID);
 		}
-		hRes = !!Process32Next (hSnapShot, &pEntry);
+		bRes = !!Process32Next (hSnapShot, &pEntry);
 	}
 
 	// Now remove temp folders that are not used.
@@ -147,7 +148,7 @@ void CleanupWMtemp()
  * This function removes temp folders whose name contains process ID from the
  * given list. These folders must have been earlier detected as unused.
  * @param [in] processIDs List of process IDs.
- * @return true if all temp folders were deleted, FALSE otherwise.
+ * @return `true` if all temp folders were deleted, `false` otherwise.
  */
 static bool CleanupWMtempfolder(const vector <int>& processIDs)
 {
@@ -162,9 +163,10 @@ static bool CleanupWMtempfolder(const vector <int>& processIDs)
 	bool res = true;
 	bool bok = true;
 
-	h = FindFirstFile (pattern.c_str(), &ff);
+	
+	h = FindFirstFile (TFile(pattern).wpath().c_str(), &ff);
 	if (h == INVALID_HANDLE_VALUE)
-		bok = FALSE;
+		bok = false;
 
 	while (bok & res)
 	{
@@ -193,7 +195,7 @@ static bool CleanupWMtempfolder(const vector <int>& processIDs)
 		}
 		bok = !!FindNextFile(h, &ff) ;
 	}
-	if (h)
+	if (h != INVALID_HANDLE_VALUE)
 		FindClose(h);
 	return res;
 }
@@ -202,7 +204,7 @@ static bool CleanupWMtempfolder(const vector <int>& processIDs)
  * @brief Is WinMerge with given processID running?
  * @param [in] processIDs List of WinMerge processes.
  * @param [in] iPI ProcessID to check.
- * @return true if processID was found from the list, FALSE otherwise.
+ * @return true if processID was found from the list, `false` otherwise.
  */
 static bool WMrunning(const vector<int>& processIDs, int iPI)
 {
@@ -212,20 +214,17 @@ static bool WMrunning(const vector<int>& processIDs, int iPI)
 /**
  * @brief Remove the temp folder.
  * @param [in] pathName Folder to remove.
- * @return true if removal succeeds, FALSE if fails.
+ * @return true if removal succeeds, `false` if fails.
  */
 bool ClearTempfolder(const String &pathName)
 {
-	// SHFileOperation expects a ZZ terminated list of paths!
-	String normalizedPathName = pathName;
-	paths::normalize(normalizedPathName); // remove trailing slash
-	const size_t pathSize = normalizedPathName.length() + 2;
-	std::vector<TCHAR> path(pathSize, 0);
-	memcpy(&path[0], normalizedPathName.c_str(), normalizedPathName.length() * sizeof(TCHAR));
-
-	SHFILEOPSTRUCT fileop = {0, FO_DELETE, &path[0], 0, FOF_NOCONFIRMATION |
-			FOF_SILENT | FOF_NOERRORUI, 0, 0, 0};
-	SHFileOperation(&fileop);
-
+	try
+	{
+		TFile(pathName).remove(true);
+	}
+	catch (...)
+	{
+		return false;
+	}
 	return true;
 }

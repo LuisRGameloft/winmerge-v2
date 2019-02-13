@@ -28,25 +28,25 @@ CPicture::~CPicture()
 //////////////////
 // Load from resource. Looks for "IMAGE" type.
 //
-BOOL CPicture::Load(UINT nIDRes)
+bool CPicture::Load(UINT nIDRes)
 {
 	// find resource in resource file
 	HINSTANCE hInst = AfxGetInstanceHandle();
 	HRSRC hRsrc = ::FindResource(hInst,
 		MAKEINTRESOURCE(nIDRes),
 		TEXT("IMAGE")); // type
-	if (!hRsrc)
-		return FALSE;
+	if (hRsrc == nullptr)
+		return false;
 
 	// load resource into memory
 	DWORD len = SizeofResource(hInst, hRsrc);
 	BYTE* lpRsrc = (BYTE*)LoadResource(hInst, hRsrc);
-	if (!lpRsrc)
-		return FALSE;
+	if (lpRsrc == nullptr)
+		return false;
 
 	// create memory file and load it
 	CMemFile file(lpRsrc, len);
-	BOOL bRet = Load(file);
+	bool bRet = Load(file);
 	FreeResource(hRsrc);
 
 	return bRet;
@@ -55,12 +55,12 @@ BOOL CPicture::Load(UINT nIDRes)
 //////////////////
 // Load from path name.
 //
-BOOL CPicture::Load(LPCTSTR pszPathName)
+bool CPicture::Load(LPCTSTR pszPathName)
 {
 	CFile file;
 	if (!file.Open(pszPathName, CFile::modeRead|CFile::shareDenyWrite))
-		return FALSE;
-	BOOL bRet = Load(file);
+		return false;
+	bool bRet = Load(file);
 	file.Close();
 	return bRet;
 }
@@ -68,7 +68,7 @@ BOOL CPicture::Load(LPCTSTR pszPathName)
 //////////////////
 // Load from CFile
 //
-BOOL CPicture::Load(CFile& file)
+bool CPicture::Load(CFile& file)
 {
 	CArchive ar(&file, CArchive::load | CArchive::bNoFlushOnDelete);
 	return Load(ar);
@@ -78,7 +78,7 @@ BOOL CPicture::Load(CFile& file)
 // Load from archive--create stream and load from stream.
 //
 // CArchiveStream Doesn't compile with VS2003.Net
-BOOL CPicture::Load(CArchive& ar)
+bool CPicture::Load(CArchive& ar)
 {
 	CArchiveStream arcstream(&ar);
 	return Load((IStream*)&arcstream);
@@ -89,21 +89,21 @@ BOOL CPicture::Load(CArchive& ar)
 // Load from stream (IStream). This is the one that really does it: call
 // OleLoadPicture to do the work.
 //
-BOOL CPicture::Load(IStream* pstm)
+bool CPicture::Load(IStream* pstm)
 {
 	Free();
 	HRESULT hr = OleLoadPicture(pstm, 0, FALSE,
 		IID_IPicture, (void**)&m_spIPicture);
-	ASSERT(SUCCEEDED(hr) && m_spIPicture);	
-	return TRUE;
+	ASSERT(SUCCEEDED(hr) && m_spIPicture != nullptr);	
+	return true;
 }
 
 //////////////////
 // Render to device context. Covert to HIMETRIC for IPicture.
 //
-BOOL CPicture::Render(CDC* pDC, CRect rc, LPCRECT prcMFBounds) const
+bool CPicture::Render(CDC* pDC, CRect rc /*= CRect(0,0,0,0)*/, LPCRECT prcMFBounds /*= nullptr*/) const
 {
-	ASSERT(pDC);
+	ASSERT(pDC != nullptr);
 
 	if (rc.IsRectNull()) {
 		CSize sz = GetImageSize(pDC);
@@ -115,23 +115,23 @@ BOOL CPicture::Render(CDC* pDC, CRect rc, LPCRECT prcMFBounds) const
 	m_spIPicture->Render(*pDC, rc.left, rc.top, rc.Width(), rc.Height(),
 		0, hmHeight, hmWidth, -hmHeight, prcMFBounds);
 
-	return TRUE;
+	return true;
 }
 
 //////////////////
 // Get image size in pixels. Converts from HIMETRIC to device coords.
 //
-CSize CPicture::GetImageSize(CDC* pDC) const
+CSize CPicture::GetImageSize(CDC* pDC /*= nullptr*/) const
 {
-	if (!m_spIPicture)
+	if (m_spIPicture == nullptr)
 		return CSize(0,0);
 	
 	LONG hmWidth, hmHeight; // HIMETRIC units
 	if (FAILED(m_spIPicture->get_Width(&hmWidth)) || FAILED(m_spIPicture->get_Height(&hmHeight)))
 		return CSize(0, 0);
 	CSize sz(hmWidth,hmHeight);
-	if (pDC==NULL) {
-		CWindowDC dc(NULL);
+	if (pDC==nullptr) {
+		CWindowDC dc(nullptr);
 		dc.HIMETRICtoDP(&sz); // convert to pixels
 	} else {
 		pDC->HIMETRICtoDP(&sz);
