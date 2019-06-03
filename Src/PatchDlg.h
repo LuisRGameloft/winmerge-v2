@@ -70,6 +70,8 @@ public:
 
 	enum output_style m_outputStyle; /**< Patch style (context, unified etc.) */
 	int m_contextLines; /**< How many context lines are added. */
+	enum DiffAlgorithm m_diffAlgorithm;
+	bool m_indentHeuristic;
 
 // Overrides
 	// ClassWizard generated virtual function overrides
@@ -90,8 +92,8 @@ protected:
 
 	// Generated message map functions
 	//{{AFX_MSG(CPatchDlg)
-	virtual void OnOK();
-	virtual BOOL OnInitDialog();
+	virtual void OnOK() override;
+	virtual BOOL OnInitDialog() override;
 	afx_msg void OnDiffBrowseFile1();
 	afx_msg void OnDiffBrowseFile2();
 	afx_msg void OnDiffBrowseResult();

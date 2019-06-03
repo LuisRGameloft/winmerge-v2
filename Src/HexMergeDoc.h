@@ -25,7 +25,6 @@
 #pragma once
 
 #include "PathContext.h"
-#include "DiffFileInfo.h"
 #include "FileLocation.h"
 #include "IMergeDoc.h"
 
@@ -85,7 +84,8 @@ public:
 	CHexMergeFrame * GetParentFrame() const;
 	void UpdateHeaderPath(int pane);
 	void RefreshOptions();
-	bool OpenDocs(int nFiles, const FileLocation fileloc[], const bool bRO[], const String strDesc[], int nPane);
+	bool OpenDocs(int nFiles, const FileLocation fileloc[], const bool bRO[], const String strDesc[]);
+	void MoveOnLoad(int nPane = -1, int nLineIndex = -1);
 	void CheckFileChanged(void);
 	String GetDescription(int pane) const { return m_strDesc[pane]; };
 private:

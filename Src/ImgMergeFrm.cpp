@@ -135,6 +135,8 @@ BEGIN_MESSAGE_MAP(CImgMergeFrame, CMDIChildWnd)
 	ON_UPDATE_COMMAND_UI_RANGE(ID_IMG_DIFFBLOCKSIZE_1, ID_IMG_DIFFBLOCKSIZE_32, OnUpdateImgDiffBlockSize)
 	ON_COMMAND_RANGE(ID_IMG_THRESHOLD_0, ID_IMG_THRESHOLD_64, OnImgThreshold)
 	ON_UPDATE_COMMAND_UI_RANGE(ID_IMG_THRESHOLD_0, ID_IMG_THRESHOLD_64, OnUpdateImgThreshold)
+	ON_COMMAND_RANGE(ID_IMG_INSERTIONDELETIONDETECTION_NONE, ID_IMG_INSERTIONDELETIONDETECTION_HORIZONTAL, OnImgInsertionDeletionDetectionMode)
+	ON_UPDATE_COMMAND_UI_RANGE(ID_IMG_INSERTIONDELETIONDETECTION_NONE, ID_IMG_INSERTIONDELETIONDETECTION_HORIZONTAL, OnUpdateImgInsertionDeletionDetectionMode)
 	ON_COMMAND(ID_IMG_PREVPAGE, OnImgPrevPage)
 	ON_UPDATE_COMMAND_UI(ID_IMG_PREVPAGE, OnUpdateImgPrevPage)
 	ON_COMMAND(ID_IMG_NEXTPAGE, OnImgNextPage)
@@ -199,7 +201,7 @@ CImgMergeFrame::~CImgMergeFrame()
 	}
 }
 
-bool CImgMergeFrame::OpenDocs(int nFiles, const FileLocation fileloc[], const bool bRO[], const String strDesc[], int nPane, CMDIFrameWnd *pParent)
+bool CImgMergeFrame::OpenDocs(int nFiles, const FileLocation fileloc[], const bool bRO[], const String strDesc[], CMDIFrameWnd *pParent)
 {
 
 	for (int pane = 0; pane < nFiles; ++pane)
@@ -218,7 +220,7 @@ bool CImgMergeFrame::OpenDocs(int nFiles, const FileLocation fileloc[], const bo
 		return false;
 
 	int nCmdShow = SW_SHOW;
-	if (theApp.GetProfileInt(_T("Settings"), _T("ActiveFrameMax"), FALSE))
+	if (GetOptionsMgr()->GetBool(OPT_ACTIVE_FRAME_MAX))
 		nCmdShow = SW_SHOWMAXIMIZED;
 	ShowWindow(nCmdShow);
 	BringToTop(nCmdShow);
@@ -228,16 +230,19 @@ bool CImgMergeFrame::OpenDocs(int nFiles, const FileLocation fileloc[], const bo
 	if (GetOptionsMgr()->GetBool(OPT_SCROLL_TO_FIRST))
 		m_pImgMergeWindow->FirstDiff();
 
+	return true;
+}
+
+void CImgMergeFrame::MoveOnLoad(int nPane, int)
+{
 	if (nPane < 0)
 	{
-		nPane = theApp.GetProfileInt(_T("Settings"), _T("ActivePane"), 0);
+		nPane = GetOptionsMgr()->GetInt(OPT_ACTIVE_PANE);
 		if (nPane < 0 || nPane >= m_pImgMergeWindow->GetPaneCount())
 			nPane = 0;
 	}
 
 	m_pImgMergeWindow->SetActivePane(nPane);
-
-	return true;
 }
 
 void CImgMergeFrame::ChangeFile(int nBuffer, const String& path)
@@ -428,7 +433,9 @@ BOOL CImgMergeFrame::OnCreateClient( LPCREATESTRUCT /*lpcs*/,
 	COLORSETTINGS colors;
 	Options::DiffColors::Load(GetOptionsMgr(), colors);
 	m_pImgMergeWindow->SetDiffColor(colors.clrDiff);
+	m_pImgMergeWindow->SetDiffDeletedColor(colors.clrDiffDeleted);
 	m_pImgMergeWindow->SetSelDiffColor(colors.clrSelDiff);
+	m_pImgMergeWindow->SetSelDiffDeletedColor(colors.clrSelDiffDeleted);
 	m_pImgMergeWindow->AddEventListener(OnChildPaneEvent, this);
 	LoadOptions();
 	
@@ -519,7 +526,7 @@ int CImgMergeFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 * @brief We must use this function before a call to SetDockState
 *
 * @note Without this, SetDockState will assert or crash if a bar from the
-* CDockState is missing in the current CChildFrame.
+* CDockState is missing in the current CMergeEditFrame.
 * The bars are identified with their ID. This means the missing bar bug is triggered
 * when we run WinMerge after changing the ID of a bar.
 */
@@ -561,7 +568,7 @@ BOOL CImgMergeFrame::DestroyWindow()
 		WINDOWPLACEMENT wp;
 		wp.length = sizeof(WINDOWPLACEMENT);
 		GetWindowPlacement(&wp);
-		theApp.WriteProfileInt(_T("Settings"), _T("ActiveFrameMax"), (wp.showCmd == SW_MAXIMIZE));
+		GetOptionsMgr()->SaveOption(OPT_ACTIVE_FRAME_MAX, (wp.showCmd == SW_MAXIMIZE));
 	}
 
 	return CMDIChildWnd::DestroyWindow();
@@ -581,6 +588,7 @@ void CImgMergeFrame::LoadOptions()
 	m_pImgMergeWindow->SetDiffBlockSize(GetOptionsMgr()->GetInt(OPT_CMP_IMG_DIFFBLOCKSIZE));
 	m_pImgMergeWindow->SetDiffColorAlpha(GetOptionsMgr()->GetInt(OPT_CMP_IMG_DIFFCOLORALPHA) / 100.0);
 	m_pImgMergeWindow->SetColorDistanceThreshold(GetOptionsMgr()->GetInt(OPT_CMP_IMG_THRESHOLD) / 1000.0);
+	m_pImgMergeWindow->SetInsertionDeletionDetectionMode(static_cast<IImgMergeWindow::INSERTION_DELETION_DETECTION_MODE>(GetOptionsMgr()->GetInt(OPT_CMP_IMG_INSERTIONDELETIONDETECTION_MODE)));
 }
 
 void CImgMergeFrame::SaveOptions()
@@ -596,6 +604,7 @@ void CImgMergeFrame::SaveOptions()
 	GetOptionsMgr()->SaveOption(OPT_CMP_IMG_DIFFBLOCKSIZE, m_pImgMergeWindow->GetDiffBlockSize());
 	GetOptionsMgr()->SaveOption(OPT_CMP_IMG_DIFFCOLORALPHA, static_cast<int>(m_pImgMergeWindow->GetDiffColorAlpha() * 100.0));
 	GetOptionsMgr()->SaveOption(OPT_CMP_IMG_THRESHOLD, static_cast<int>(m_pImgMergeWindow->GetColorDistanceThreshold() * 1000));
+	GetOptionsMgr()->SaveOption(OPT_CMP_IMG_INSERTIONDELETIONDETECTION_MODE, static_cast<int>(m_pImgMergeWindow->GetInsertionDeletionDetectionMode()));
 }
 /**
  * @brief Save coordinates of the frame, splitters, and bars
@@ -607,7 +616,7 @@ void CImgMergeFrame::SavePosition()
 {
 	CRect rc;
 	GetWindowRect(&rc);
-	theApp.WriteProfileInt(_T("Settings"), _T("ActivePane"), m_pImgMergeWindow->GetActivePane());
+	GetOptionsMgr()->SaveOption(OPT_ACTIVE_PANE, m_pImgMergeWindow->GetActivePane());
 
 	// save the bars layout
 	// save docking positions and sizes
@@ -620,17 +629,19 @@ void CImgMergeFrame::SavePosition()
 
 void CImgMergeFrame::OnMDIActivate(BOOL bActivate, CWnd* pActivateWnd, CWnd* pDeactivateWnd)
 {
-	CMDIChildWnd::OnMDIActivate(bActivate, pActivateWnd, pDeactivateWnd);
 	if (bActivate)
 	{
-		GetMainFrame()->PostMessage(WM_USER + 1);
-
 		CDockState pDockState;
 		pDockState.LoadState(_T("Settings-ImgMergeFrame"));
 		if (EnsureValidDockState(pDockState)) // checks for valid so won't ASSERT
 			SetDockState(pDockState);
 		// for the dimensions of the diff and location pane, use the CSizingControlBar loader
 		m_wndLocationBar.LoadState(_T("Settings-ImgMergeFrame"));
+	}
+	CMDIChildWnd::OnMDIActivate(bActivate, pActivateWnd, pDeactivateWnd);
+	if (bActivate)
+	{
+		GetMainFrame()->PostMessage(WM_USER + 1);
 	}
 }
 
@@ -661,10 +672,15 @@ bool CImgMergeFrame::DoFileSave(int pane)
 			theApp.CreateBackup(false, filename);
 			if (!m_pImgMergeWindow->SaveImage(pane))
 			{
+				String str = strutils::format_string2(_("Saving file failed.\n%1\n%2\nDo you want to:\n\t-use a different filename (Press Ok)\n\t-abort the current operation (Press Cancel)?"), filename, GetSysError());
+				int answer = AfxMessageBox(str.c_str(), MB_OKCANCEL | MB_ICONWARNING);
+				if (answer == IDOK)
+					return DoFileSaveAs(pane);
 				return false;
 			}
 		}
 		UpdateDiffItem(m_pDirDoc);
+		m_fileInfo[pane].Update(m_filePaths[pane]);
 	}
 	return true;
 }
@@ -680,11 +696,18 @@ bool CImgMergeFrame::DoFileSaveAs(int pane)
 		title = _("Save Right File As");
 	else
 		title = _("Save Middle File As");
+RETRY:
 	if (SelectFile(AfxGetMainWnd()->GetSafeHwnd(), strPath, false, path.c_str(), title))
 	{
 		std::wstring filename = ucr::toUTF16(strPath).c_str();
-		if (m_pImgMergeWindow->SaveImageAs(pane, filename.c_str()))
+		if (!m_pImgMergeWindow->SaveImageAs(pane, filename.c_str()))
+		{
+			String str = strutils::format_string2(_("Saving file failed.\n%1\n%2\nDo you want to:\n\t-use a different filename (Press Ok)\n\t-abort the current operation (Press Cancel)?"), strPath, GetSysError());
+			int answer = AfxMessageBox(str.c_str(), MB_OKCANCEL | MB_ICONWARNING);
+			if (answer == IDOK)
+				goto RETRY;
 			return false;
+		}
 		if (path.empty())
 		{
 			// We are saving scratchpad (unnamed file)
@@ -694,6 +717,7 @@ bool CImgMergeFrame::DoFileSaveAs(int pane)
 
 		m_filePaths.SetPath(pane, strPath);
 		UpdateDiffItem(m_pDirDoc);
+		m_fileInfo[pane].Update(m_filePaths[pane]);
 		UpdateHeaderPath(pane);
 	}
 	return true;
@@ -1327,13 +1351,11 @@ void CImgMergeFrame::OnIdleUpdateCmdUI()
 				UpdateHeaderPath(pane);
 
 			m_wndFilePathBar.SetActive(pane, pane == m_pImgMergeWindow->GetActivePane());
+			POINT ptReal;
 			String text;
-			if (pt.x >= 0 && pt.y >= 0 &&
-				pt.x < m_pImgMergeWindow->GetImageWidth(pane) &&
-				pt.y < m_pImgMergeWindow->GetImageHeight(pane))
+			if (m_pImgMergeWindow->ConvertToRealPos(pane, pt, ptReal))
 			{
-				POINT ptOffset = m_pImgMergeWindow->GetImageOffset(pane);
-				text += strutils::format(_T("Pt:(%d,%d) RGBA:(%d,%d,%d,%d) "), pt.x - ptOffset.x, pt.y - ptOffset.y,
+				text += strutils::format(_T("Pt:(%d,%d) RGBA:(%d,%d,%d,%d) "), ptReal.x, ptReal.y,
 					color[pane].rgbRed, color[pane].rgbGreen, color[pane].rgbBlue, color[pane].rgbReserved);
 				if (pane == 1 && m_pImgMergeWindow->GetPaneCount() == 3)
 					text += strutils::format(_T("Dist:%g,%g "), colorDistance01, colorDistance12);
@@ -1904,6 +1926,17 @@ void CImgMergeFrame::OnUpdateImgThreshold(CCmdUI* pCmdUI)
 		pCmdUI->SetRadio((1 << (pCmdUI->m_nID - ID_IMG_THRESHOLD_2)) * 2 == m_pImgMergeWindow->GetColorDistanceThreshold() );
 }
 
+void CImgMergeFrame::OnImgInsertionDeletionDetectionMode(UINT nId)
+{
+	m_pImgMergeWindow->SetInsertionDeletionDetectionMode(static_cast<IImgMergeWindow::INSERTION_DELETION_DETECTION_MODE>(nId - ID_IMG_INSERTIONDELETIONDETECTION_NONE));
+	SaveOptions();
+}
+
+void CImgMergeFrame::OnUpdateImgInsertionDeletionDetectionMode(CCmdUI* pCmdUI)
+{
+	pCmdUI->SetRadio(static_cast<unsigned>(m_pImgMergeWindow->GetInsertionDeletionDetectionMode() + ID_IMG_INSERTIONDELETIONDETECTION_NONE) == pCmdUI->m_nID);
+}
+
 void CImgMergeFrame::OnImgPrevPage()
 {
 	m_pImgMergeWindow->SetCurrentPageAll(m_pImgMergeWindow->GetCurrentMaxPage() - 1);
@@ -2019,13 +2052,11 @@ bool CImgMergeFrame::GenerateReport(const String& sFileName) const
 		_T("<style type=\"text/css\">\n")
 		_T("table { table-layout: fixed; width: 100%; height: 100%; border-collapse: collapse; }\n")
 		_T("td,th { border: solid 1px black; }\n")
-		_T(".border { border-radius: 6px; border: 1px #a0a0a0 solid; box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.15); overflow: hidden; }\n")
 		_T(".title { color: white; background-color: blue; vertical-align: top; padding: 4px 4px; background: linear-gradient(mediumblue, darkblue);}\n")
 		_T(".img   { overflow: scroll; text-align: center; }\n")
 		_T("</style>\n")
 		_T("</head>\n")
 		_T("<body>\n")
-		_T("<div class=\"border\">\n")
 		_T("<table>\n")
 		_T("<tr>\n"));
 	for (int i = 0; i < m_pImgMergeWindow->GetPaneCount(); ++i)
@@ -2040,7 +2071,6 @@ bool CImgMergeFrame::GenerateReport(const String& sFileName) const
 	file.WriteString(
 		_T("</tr>\n")
 		_T("</table>\n")
-		_T("</div>\n")
 		_T("</body>\n")
 		_T("</html>\n"));
 	return true;

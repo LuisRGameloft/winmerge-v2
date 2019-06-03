@@ -24,6 +24,7 @@
  * @brief Implementation of the file and folder selection routines.
  */
 
+#include "pch.h"
 #include <windows.h>
 #include "FileOrFolderSelect.h"
 #pragma warning (push)			// prevent "warning C4091: 'typedef ': ignored on left of 'tagGPFIDL_FLAGS' when no variable is declared"
@@ -69,6 +70,7 @@ bool SelectFile(HWND parent, String& path, bool is_open /*= true*/,
 	// This will tell common file dialog what to show
 	// and also this will hold its return value
 	TCHAR sSelectedFile[MAX_PATH_FULL] = {0};
+	String sInitialDir;
 
 	// check if specified path is a file
 	if (initialPath && initialPath[0])
@@ -81,6 +83,11 @@ bool SelectFile(HWND parent, String& path, bool is_open /*= true*/,
 			String temp;
 			paths::SplitFilename(initialPath, 0, &temp, 0);
 			lstrcpy(sSelectedFile, temp.c_str());
+			sInitialDir = paths::GetParentPath(initialPath);
+		}
+		else
+		{
+			sInitialDir = initialPath;
 		}
 	}
 
@@ -104,7 +111,7 @@ bool SelectFile(HWND parent, String& path, bool is_open /*= true*/,
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFile = sSelectedFile;
 	ofn.nMaxFile = MAX_PATH_FULL;
-	ofn.lpstrInitialDir = initialPath;
+	ofn.lpstrInitialDir = sInitialDir.empty() ? nullptr : sInitialDir.c_str();
 	ofn.lpstrTitle = title.c_str();
 	ofn.lpstrFileTitle = nullptr;
 	if (defaultExtension)

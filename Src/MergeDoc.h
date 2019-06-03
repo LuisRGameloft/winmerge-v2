@@ -32,7 +32,6 @@
 #include "DiffList.h"
 #include "TempFile.h"
 #include "PathContext.h"
-#include "DiffFileInfo.h"
 #include "IMergeDoc.h"
 
 /**
@@ -130,7 +129,7 @@ struct DiffFileInfo;
 class CMergeEditView;
 class PackingInfo;
 class PrediffingInfo;
-class CChildFrame;
+class CMergeEditFrame;
 class CDirDoc;
 class CEncodingErrorBar;
 class CLocationView;
@@ -179,8 +178,9 @@ public:
 	void RefreshOptions();
 	void UpdateResources();
 	bool OpenDocs(int nFiles, const FileLocation fileloc[],
-		const bool bRO[], const String strDesc[], int nPane = -1, int nLineIndex = -1);
+		const bool bRO[], const String strDesc[]);
 	int LoadFile(CString sFileName, int nBuffer, bool & readOnly, const FileTextEncoding & encoding);
+	void MoveOnLoad(int nPane = -1, int nLinIndex = -1);
 	void ChangeFile(int nBuffer, const String& path);
 	void RescanIfNeeded(float timeOutInSecond);
 	int Rescan(bool &bBinary, IDENTLEVEL &identical, bool bForced = false);
@@ -192,7 +192,7 @@ public:
 	void CopyMultipleList(int srcPane, int dstPane, int firstDiff, int lastDiff, int firstWordDiff = -1, int lastWordDiff = -1);
 	void DoAutoMerge(int dstPane);
 	bool SanityCheckDiff(DIFFRANGE dr) const;
-	bool WordListCopy(int srcPane, int dstPane, int nDiff, int nFirstWordDiff, int nLastWordDiff, std::vector<int> *pWordDiffIndice, bool bGroupWithPrevious = false, bool bUpdateView = true);
+	bool WordListCopy(int srcPane, int dstPane, int nDiff, int nFirstWordDiff, int nLastWordDiff, const std::vector<int> *pWordDiffIndice, bool bGroupWithPrevious = false, bool bUpdateView = true);
 	bool ListCopy(int srcPane, int dstPane, int nDiff = -1, bool bGroupWithPrevious = false, bool bUpdateView = true);
 	bool TrySaveAs(String& strPath, int &nLastErrorCode, String & sError,
 		int nBuffer, PackingInfo * pInfoTempUnpacker);
@@ -253,7 +253,7 @@ public:
 		for (int nBuffer = 0; nBuffer < m_nBuffers; ++nBuffer)
 			func(m_pView[nGroup][nBuffer]);
 	}
-	CChildFrame * GetParentFrame();
+	CMergeEditFrame * GetParentFrame();
 
 	void AddSyncPoint();
 	bool DeleteSyncPoint(int pane, int nLine, bool bRescan = true);
@@ -277,7 +277,8 @@ public:
 public:
 	typedef enum { BYTEDIFF, WORDDIFF } DIFFLEVEL;
 	void Showlinediff(CMergeEditView *pView, bool bReversed = false);
-	void GetWordDiffArray(int nLineIndex, std::vector<WordDiff> *pWordDiffs);
+	std::vector<WordDiff> GetWordDiffArrayInDiffBlock(int nDiff);
+	std::vector<WordDiff> GetWordDiffArray(int nLineIndex);
 	void ClearWordDiffCache(int nDiff = -1);
 private:
 	void Computelinediff(CMergeEditView *pView, CRect rc[], bool bReversed);

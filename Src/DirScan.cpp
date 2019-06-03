@@ -4,7 +4,7 @@
  *  @brief Implementation of DirScan (q.v.) and helper functions
  */ 
 
-#include "stdafx.h"
+#include "pch.h"
 #include "DirScan.h"
 #include <cassert>
 #include <memory>
@@ -35,10 +35,7 @@
 #include "MergeApp.h"
 #include "OptionsDef.h"
 #include "OptionsMgr.h"
-
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
+#include "DebugNew.h"
 
 using Poco::NotificationQueue;
 using Poco::Notification;
@@ -148,12 +145,11 @@ int DirScan_GetItems(const PathContext &paths, const String subdir[],
 	String sDir[3];
 	String subprefix[3];
 
-	int nIndex;
 	std::copy(paths.begin(), paths.end(), sDir);
 
 	if (!subdir[0].empty())
 	{
-		for (nIndex = 0; nIndex < paths.GetSize(); nIndex++)
+		for (int nIndex = 0; nIndex < paths.GetSize(); nIndex++)
 		{
 			sDir[nIndex] = paths::ConcatPath(sDir[nIndex], subdir[nIndex]);
 			subprefix[nIndex] = subdir[nIndex] + backslash;
@@ -161,7 +157,7 @@ int DirScan_GetItems(const PathContext &paths, const String subdir[],
 	}
 
 	DirItemArray dirs[3], aFiles[3];
-	for (nIndex = 0; nIndex < nDirs; nIndex++)
+	for (int nIndex = 0; nIndex < nDirs; nIndex++)
 		LoadAndSortFiles(sDir[nIndex], &dirs[nIndex], &aFiles[nIndex], casesensitive);
 
 	// Allow user to abort scanning
@@ -172,10 +168,13 @@ int DirScan_GetItems(const PathContext &paths, const String subdir[],
 	// i points to current directory in left list (leftDirs)
 	// j points to current directory in right list (rightDirs)
 
-	for (nIndex = 0; nIndex < nDirs; nIndex++)
-		if (dirs[nIndex].size() != 0 || aFiles[nIndex].size() != 0) break;
-	if (nIndex == nDirs)
-		return 0;
+	{
+		int nIndex;
+		for (nIndex = 0; nIndex < nDirs; nIndex++)
+			if (dirs[nIndex].size() != 0 || aFiles[nIndex].size() != 0) break;
+		if (nIndex == nDirs)
+			return 0;
+	}
 
 	DirItemArray::size_type i=0, j=0, k=0;
 	while (true)
@@ -444,6 +443,25 @@ int DirScan_GetItems(const PathContext &paths, const String subdir[],
 		}
 		break;
 	}
+
+	if (parent != nullptr)
+	{
+		for (int nIndex = 0; nIndex < nDirs; ++nIndex)
+			if (parent->diffcode.exists(nIndex) && parent->diffFileInfo[nIndex].size == DirItem::FILE_SIZE_NONE)
+				parent->diffFileInfo[nIndex].size = 0;
+	
+		DIFFITEM *dic = parent->GetFirstChild();
+		while (dic)
+		{
+			for (int nIndex = 0; nIndex < nDirs; ++nIndex)
+			{
+				if (dic->diffFileInfo[nIndex].size != DirItem::FILE_SIZE_NONE)
+					parent->diffFileInfo[nIndex].size += dic->diffFileInfo[nIndex].size;
+			}
+			dic = dic->GetFwdSiblingLink();
+		}
+	}
+
 	return 1;
 }
 
@@ -685,7 +703,7 @@ int DirScan_UpdateMarkedItems(DiffFuncStruct *myStruct, DIFFITEM *parentdiffpos)
 	CDiffContext *pCtxt = myStruct->context;
 	DIFFITEM *pos = pCtxt->GetFirstChildDiffPosition(parentdiffpos);
 	int ncount = 0;
-	
+
 	while (pos != nullptr)
 	{
 		if (pCtxt->ShouldAbort())
@@ -707,6 +725,9 @@ int DirScan_UpdateMarkedItems(DiffFuncStruct *myStruct, DIFFITEM *parentdiffpos)
 		}
 		if (di.diffcode.isDirectory() && pCtxt->m_bRecursive)
 		{
+			for (int i = 0; i < pCtxt->GetCompareDirs(); ++i)
+				if (di.diffcode.exists(i))
+					di.diffFileInfo[i].size = 0;
 			if (di.diffcode.isScanNeeded() && !di.diffcode.isResultFiltered())
 			{
 				di.RemoveChildren();
@@ -726,6 +747,12 @@ int DirScan_UpdateMarkedItems(DiffFuncStruct *myStruct, DIFFITEM *parentdiffpos)
 			{
 				ncount += DirScan_UpdateMarkedItems(myStruct, curpos);
 			}
+		}
+		if (parentdiffpos != nullptr && pCtxt->m_bRecursive)
+		{
+			for (int nIndex = 0; nIndex < pCtxt->GetCompareDirs(); ++nIndex)
+				if (curpos->diffFileInfo[nIndex].size != DirItem::FILE_SIZE_NONE)
+					parentdiffpos->diffFileInfo[nIndex].size += curpos->diffFileInfo[nIndex].size;
 		}
 	}
 	return ncount;

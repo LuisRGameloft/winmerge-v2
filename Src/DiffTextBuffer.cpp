@@ -463,8 +463,8 @@ int CDiffTextBuffer::SaveToFile (const String& pszFileName,
 
 	if (bTempFile)
 	{
-		file.SetUnicoding(ucr::UCS2LE);
-		file.SetBom(true);
+		file.SetUnicoding(ucr::UTF8);
+		file.SetBom(false);
 		bOpenSuccess = !!file.OpenCreate(pszFileName);
 	}
 	else

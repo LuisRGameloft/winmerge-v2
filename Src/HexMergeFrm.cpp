@@ -139,10 +139,7 @@ BOOL CHexMergeFrame::OnCreateClient( LPCREATESTRUCT /*lpcs*/,
 
 	m_wndFilePathBar.SetPaneCount(m_pMergeDoc->m_nBuffers);
 	m_wndFilePathBar.SetOnSetFocusCallback([&](int pane) {
-		if (m_wndSplitter.GetColumnCount() > 1)
-			m_wndSplitter.SetActivePane(0, pane);
-		else
-			m_wndSplitter.SetActivePane(pane, 0);
+		SetActivePane(pane);
 	});
 
 	// Set filename bars inactive so colors get initialized
@@ -199,7 +196,7 @@ BOOL CHexMergeFrame::OnCreateClient( LPCREATESTRUCT /*lpcs*/,
 
 void CHexMergeFrame::ActivateFrame(int nCmdShow) 
 {
-	if (!GetMDIFrame()->MDIGetActive() && theApp.GetProfileInt(_T("Settings"), _T("ActiveFrameMax"), FALSE))
+	if (!GetMDIFrame()->MDIGetActive() && GetOptionsMgr()->GetBool(OPT_ACTIVE_FRAME_MAX))
 	{
 		nCmdShow = SW_SHOWMAXIMIZED;
 	}
@@ -219,7 +216,7 @@ BOOL CHexMergeFrame::DestroyWindow()
 		WINDOWPLACEMENT wp;
 		wp.length = sizeof(WINDOWPLACEMENT);
 		GetWindowPlacement(&wp);
-		theApp.WriteProfileInt(_T("Settings"), _T("ActiveFrameMax"), (wp.showCmd == SW_MAXIMIZE));
+		GetOptionsMgr()->SaveOption(OPT_ACTIVE_FRAME_MAX, (wp.showCmd == SW_MAXIMIZE));
 	}
 
 	return CMDIChildWnd::DestroyWindow();
@@ -238,6 +235,7 @@ void CHexMergeFrame::SavePosition()
 		CRect rc;
 		pLeft->GetWindowRect(&rc);
 		theApp.WriteProfileInt(_T("Settings"), _T("WLeft"), rc.Width());
+		GetOptionsMgr()->SaveOption(OPT_ACTIVE_PANE, GetActivePane());
 	}
 }
 
@@ -346,6 +344,24 @@ void CHexMergeFrame::UpdateAutoPaneResize()
 void CHexMergeFrame::UpdateSplitter()
 {
 	m_wndSplitter.RecalcLayout();
+}
+
+int CHexMergeFrame::GetActivePane()
+{
+	int nPane;
+	if (m_wndSplitter.GetColumnCount() > 1)
+		m_wndSplitter.GetActivePane(nullptr, &nPane);
+	else
+		m_wndSplitter.GetActivePane(&nPane, nullptr);
+	return nPane;
+}
+
+void CHexMergeFrame::SetActivePane(int nPane)
+{
+	if (m_wndSplitter.GetColumnCount() > 1)
+		m_wndSplitter.SetActivePane(0, nPane);
+	else
+		m_wndSplitter.SetActivePane(nPane, 0);
 }
 
 /**

@@ -36,7 +36,7 @@
 #include "Environment.h"
 #include "MovedLines.h"
 #include "MergeEditView.h"
-#include "ChildFrm.h"
+#include "MergeEditFrm.h"
 #include "DirDoc.h"
 #include "files.h"
 #include "FileTransform.h"
@@ -85,7 +85,7 @@ static LPCTSTR crlfs[] =
 	_T ("\x0d")      //  Macintosh style
 };
 
-static void SaveBuffForDiff(CDiffTextBuffer & buf, const String& filepath, bool bForceUTF8, int nStartLine = 0, int nLines = -1);
+static void SaveBuffForDiff(CDiffTextBuffer & buf, const String& filepath, int nStartLine = 0, int nLines = -1);
 
 /////////////////////////////////////////////////////////////////////////////
 // CMergeDoc
@@ -265,22 +265,8 @@ void CMergeDoc::Serialize(CArchive& ar)
  * (the plugins are optional, not the conversion)
  * @todo Show SaveToFile() errors?
  */
-static void SaveBuffForDiff(CDiffTextBuffer & buf, const String& filepath, bool bForceUTF8, int nStartLine, int nLines)
+static void SaveBuffForDiff(CDiffTextBuffer & buf, const String& filepath, int nStartLine, int nLines)
 {
-	ASSERT(buf.m_nSourceEncoding == buf.m_nDefaultEncoding);  
-	int orig_codepage = buf.getCodepage();
-	ucr::UNICODESET orig_unicoding = buf.getUnicoding();
-	bool orig_bHasBOM = buf.getHasBom();
-
-	// If file was in Unicode
-	if (orig_unicoding != ucr::NONE || bForceUTF8)
-	{
-	// we subvert the buffer's memory of the original file encoding
-		buf.setUnicoding(ucr::UTF8);  // write as UTF-8 (for preprocessing)
-		buf.setCodepage(ucr::CP_UTF_8); // should not matter
-		buf.setHasBom(false);
-	}
-
 	// and we don't repack the file
 	PackingInfo * tempPacker = nullptr;
 
@@ -288,11 +274,6 @@ static void SaveBuffForDiff(CDiffTextBuffer & buf, const String& filepath, bool 
 	String sError;
 	int retVal = buf.SaveToFile(filepath, true, sError, tempPacker,
 		CRLF_STYLE_AUTOMATIC, false, nStartLine, nLines);
-
-	// restore memory of encoding of original file
-	buf.setUnicoding(orig_unicoding);
-	buf.setCodepage(orig_codepage);
-	buf.setHasBom(orig_bHasBOM);
 }
 
 /**
@@ -383,13 +364,6 @@ int CMergeDoc::Rescan(bool &bBinary, IDENTLEVEL &identical,
 	// Set up DiffWrapper
 	m_diffWrapper.GetOptions(&diffOptions);
 
-	bool bForceUTF8 = diffOptions.bIgnoreCase;
-	IF_IS_TRUE_ALL (
-		m_ptBuf[0]->getCodepage() == m_ptBuf[nBuffer]->getCodepage() && m_ptBuf[nBuffer]->getUnicoding() == ucr::NONE,
-		nBuffer, m_nBuffers) {}
-	else
-		bForceUTF8 = true;
-
 	// Clear diff list
 	m_diffList.Clear();
 	m_nCurDiff = -1;
@@ -407,9 +381,6 @@ int CMergeDoc::Rescan(bool &bBinary, IDENTLEVEL &identical,
 	else
 		m_diffWrapper.SetPaths(PathContext(m_tempFiles[0].GetPath(), m_tempFiles[1].GetPath(), m_tempFiles[2].GetPath()), true);
 	m_diffWrapper.SetCompareFiles(m_filePaths);
-	m_diffWrapper.SetCodepage(bForceUTF8 ? ucr::CP_UTF_8 : (m_ptBuf[0]->m_encoding.m_unicoding ? CP_UTF8 : m_ptBuf[0]->m_encoding.m_codepage));
-	m_diffWrapper.SetCodepage(m_ptBuf[0]->m_encoding.m_unicoding ?
-			CP_UTF8 : m_ptBuf[0]->m_encoding.m_codepage);
 
 	DIFFSTATUS status;
 
@@ -419,7 +390,7 @@ int CMergeDoc::Rescan(bool &bBinary, IDENTLEVEL &identical,
 		for (nBuffer = 0; nBuffer < m_nBuffers; nBuffer++)
 		{
 			m_ptBuf[nBuffer]->SetTempPath(tempPath);
-			SaveBuffForDiff(*m_ptBuf[nBuffer], m_tempFiles[nBuffer].GetPath(), bForceUTF8);
+			SaveBuffForDiff(*m_ptBuf[nBuffer], m_tempFiles[nBuffer].GetPath());
 		}
 
 		m_diffWrapper.SetCreateDiffList(&m_diffList);
@@ -442,7 +413,7 @@ int CMergeDoc::Rescan(bool &bBinary, IDENTLEVEL &identical,
 			{
 				nLines[nBuffer] = (i >= syncpoints.size()) ? -1 : syncpoints[i][nBuffer] - nStartLine[nBuffer];
 				m_ptBuf[nBuffer]->SetTempPath(tempPath);
-				SaveBuffForDiff(*m_ptBuf[nBuffer], m_tempFiles[nBuffer].GetPath(), bForceUTF8,
+				SaveBuffForDiff(*m_ptBuf[nBuffer], m_tempFiles[nBuffer].GetPath(), 
 					nStartLine[nBuffer], nLines[nBuffer]);
 			}
 			DiffList templist;
@@ -599,14 +570,12 @@ void CMergeDoc::FlagTrivialLines(void)
 				DIFFOPTIONS diffOptions = {0};
 				m_diffWrapper.GetOptions(&diffOptions);
 
-				std::vector<strdiff::wdiff> worddiffs;
 				// Make the call to stringdiffs, which does all the hard & tedious computations
-				strdiff::ComputeWordDiffs(m_nBuffers, str,
+				std::vector<strdiff::wdiff> worddiffs = strdiff::ComputeWordDiffs(m_nBuffers, str,
 					!diffOptions.bIgnoreCase,
 					diffOptions.nIgnoreWhitespace,
 					GetBreakType(), // whitespace only or include punctuation
-					GetByteColoringOption(),
-					&worddiffs);
+					GetByteColoringOption());
 				if (!worddiffs.empty())
 				{
 					for (int file = 0; file < m_nBuffers; ++file)
@@ -699,7 +668,7 @@ void CMergeDoc::FlagMovedLines(void)
 
 int CMergeDoc::ShowMessageBox(const String& sText, unsigned nType, unsigned nIDHelp)
 {
-	if (!GetParentFrame()->IsActivated())
+	if (m_pView[0][0] && m_pView[0][0]->IsTextBufferInitialized() && !GetParentFrame()->IsActivated())
 	{
 		GetParentFrame()->InitialUpdateFrame(this, true);
 		GetParentFrame()->SendMessageToDescendants(WM_IDLEUPDATECMDUI, static_cast<WPARAM>(true), 0, true, true);
@@ -897,7 +866,7 @@ void CMergeDoc::CopyMultipleList(int srcPane, int dstPane, int firstDiff, int la
 			}			
 			// Group merge with previous (merge undo data to one action)
 			bGroupWithPrevious = true;
-			if (i > firstDiff)
+			if (i > firstDiff || firstWordDiff <= 0)
 			{
 				if (!ListCopy(srcPane, dstPane, -1, bGroupWithPrevious, false))
 					break; // sync failure
@@ -1216,7 +1185,7 @@ bool CMergeDoc::ListCopy(int srcPane, int dstPane, int nDiff /* = -1*/,
 }
 
 bool CMergeDoc::WordListCopy(int srcPane, int dstPane, int nDiff, int firstWordDiff, int lastWordDiff,
-		std::vector<int> *pWordDiffIndice, bool bGroupWithPrevious /*= false*/, bool bUpdateView /*= true*/)
+		const std::vector<int> *pWordDiffIndice, bool bGroupWithPrevious /*= false*/, bool bUpdateView /*= true*/)
 {
 	int nGroup = GetActiveMergeView()->m_nThisGroup;
 	CMergeEditView *pViewSrc = m_pView[nGroup][srcPane];
@@ -1244,11 +1213,13 @@ bool CMergeDoc::WordListCopy(int srcPane, int dstPane, int nDiff, int firstWordD
 		return false; // abort copying
 	}
 
-	std::vector<WordDiff> worddiffs;
-	GetWordDiffArray(cd_dbegin, &worddiffs);
+	std::vector<WordDiff> worddiffs = GetWordDiffArrayInDiffBlock(nDiff);
 
 	if (worddiffs.empty())
 		return false;
+
+	if (cd.end[srcPane] < cd.begin[srcPane])
+		return ListCopy(srcPane, dstPane, nDiff, bGroupWithPrevious, bUpdateView);
 
 	if (firstWordDiff == -1)
 		firstWordDiff = 0;
@@ -1312,9 +1283,9 @@ bool CMergeDoc::WordListCopy(int srcPane, int dstPane, int nDiff, int firstWordD
 		int srcEnd   = nSrcOffsets[worddiffs[i].endline[srcPane] - ptSrcStart.y] + worddiffs[i].end[srcPane];
 		int dstBegin = nDstOffsets[worddiffs[i].beginline[dstPane] - ptDstStart.y] + worddiffs[i].begin[dstPane];
 		int dstEnd   = nDstOffsets[worddiffs[i].endline[dstPane] - ptDstStart.y] + worddiffs[i].end[dstPane];
-		CString text = srcText.Mid(srcBegin - ptSrcStart.x, srcEnd - srcBegin);
-		dstText.Delete(dstBegin - ptDstStart.x, dstEnd - dstBegin);
-		dstText.Insert(dstBegin - ptDstStart.x, text);
+		dstText = dstText.Mid(0, dstBegin - ptDstStart.x)
+		        + srcText.Mid(srcBegin - ptSrcStart.x, srcEnd - srcBegin)
+		        + dstText.Mid(dstEnd - ptDstStart.x);
 	}
 
 	dbuf.DeleteText(pSource, ptDstStart.y, ptDstStart.x, ptDstEnd.y, ptDstEnd.x, CE_ACTION_MERGE);
@@ -2441,9 +2412,9 @@ void CMergeDoc::SetDirDoc(CDirDoc * pDirDoc)
 /**
  * @brief Return pointer to parent frame
  */
-CChildFrame * CMergeDoc::GetParentFrame() 
+CMergeEditFrame * CMergeDoc::GetParentFrame() 
 {
-	return dynamic_cast<CChildFrame *>(m_pView[0][0]->GetParentFrame()); 
+	return dynamic_cast<CMergeEditFrame *>(m_pView[0][0]->GetParentFrame()); 
 }
 
 /**
@@ -2599,14 +2570,12 @@ DWORD CMergeDoc::LoadOneFile(int index, String filename, bool readOnly, const St
  * @brief Loads files and does initial rescan.
  * @param fileloc [in] File to open to left/middle/right side (path & encoding info)
  * @param bRO [in] Is left/middle/right file read-only
- * @param nPane [in] Pane to activate
- * @param nLineIndex [in] Index of line in view to move the cursor to
  * @return Success/Failure/Binary (failure) per typedef enum OpenDocsResult_TYPE
  * @todo Options are still read from CMainFrame, this will change
  * @sa CMainFrame::ShowMergeDoc()
  */
 bool CMergeDoc::OpenDocs(int nFiles, const FileLocation ifileloc[],
-		const bool bRO[], const String strDesc[], int nPane/* = -1 */, int nLineIndex/* = -1 */)
+		const bool bRO[], const String strDesc[])
 {
 	IDENTLEVEL identical = IDENTLEVEL_NONE;
 	int nRescanResult = RESCAN_OK;
@@ -2664,7 +2633,7 @@ bool CMergeDoc::OpenDocs(int nFiles, const FileLocation ifileloc[],
 	// Bail out if either side failed
 	if (std::find_if(nSuccess, nSuccess + m_nBuffers, [](DWORD d){return !FileLoadResult::IsOk(d);} ) != nSuccess + m_nBuffers)
 	{
-		CChildFrame *pFrame = GetParentFrame();
+		CMergeEditFrame *pFrame = GetParentFrame();
 		if (pFrame != nullptr)
 		{
 			// Use verify macro to trap possible error in debug.
@@ -2829,29 +2798,6 @@ bool CMergeDoc::OpenDocs(int nFiles, const FileLocation ifileloc[],
 			ShowRescanError(nRescanResult, identical);
 		}
 
-		if (nPane < 0)
-		{
-			nPane = theApp.GetProfileInt(_T("Settings"), _T("ActivePane"), 0);
-			if (nPane < 0 || nPane >= m_nBuffers)
-				nPane = 0;
-		}
-		if (nLineIndex == -1)
-		{
-			// scroll to first diff
-			if (GetOptionsMgr()->GetBool(OPT_SCROLL_TO_FIRST) &&
-				m_diffList.HasSignificantDiffs())
-			{
-				int nDiff = m_diffList.FirstSignificantDiff();
-				m_pView[0][nPane]->SelectDiff(nDiff, true, false);
-				nLineIndex = m_pView[0][nPane]->GetCursorPos().y;
-			}
-			else
-			{
-				nLineIndex = 0;
-			}
-		}
-		m_pView[0][nPane]->GotoLine(nLineIndex, false, nPane);
-
 		// Exit if files are identical should only work for the first
 		// comparison and must be disabled afterward.
 		theApp.m_bExitIfNoDiff = MergeCmdLineInfo::Disabled;
@@ -2875,6 +2821,32 @@ bool CMergeDoc::OpenDocs(int nFiles, const FileLocation ifileloc[],
 	return true;
 }
 
+void CMergeDoc::MoveOnLoad(int nPane, int nLineIndex)
+{
+	if (nPane < 0)
+	{
+		nPane = GetOptionsMgr()->GetInt(OPT_ACTIVE_PANE);
+		if (nPane < 0 || nPane >= m_nBuffers)
+			nPane = 0;
+	}
+	if (nLineIndex == -1)
+	{
+		// scroll to first diff
+		if (GetOptionsMgr()->GetBool(OPT_SCROLL_TO_FIRST) &&
+			m_diffList.HasSignificantDiffs())
+		{
+			int nDiff = m_diffList.FirstSignificantDiff();
+			m_pView[0][nPane]->SelectDiff(nDiff, true, false);
+			nLineIndex = m_pView[0][nPane]->GetCursorPos().y;
+		}
+		else
+		{
+			nLineIndex = 0;
+		}
+	}
+	m_pView[0][nPane]->GotoLine(nLineIndex, false, nPane);
+}
+
 void CMergeDoc::ChangeFile(int nBuffer, const String& path)
 {
 	if (!PromptAndSaveIfNeeded(true))
@@ -2896,7 +2868,8 @@ void CMergeDoc::ChangeFile(int nBuffer, const String& path)
 	fileloc[nBuffer].setPath(path);
 	fileloc[nBuffer].encoding = GuessCodepageEncoding(path, GetOptionsMgr()->GetInt(OPT_CP_DETECT));
 	
-	OpenDocs(m_nBuffers, fileloc, bRO, strDesc, nBuffer, 0);
+	OpenDocs(m_nBuffers, fileloc, bRO, strDesc);
+	MoveOnLoad(nBuffer, 0);
 }
 
 /**
@@ -2925,7 +2898,7 @@ void CMergeDoc::RefreshOptions()
  */
 void CMergeDoc::UpdateHeaderPath(int pane)
 {
-	CChildFrame *pf = GetParentFrame();
+	CMergeEditFrame *pf = GetParentFrame();
 	ASSERT(pf != nullptr);
 	String sText;
 	bool bChanges = false;
@@ -2958,7 +2931,7 @@ void CMergeDoc::UpdateHeaderPath(int pane)
  */
 void CMergeDoc::UpdateHeaderActivity(int pane, bool bActivate)
 {
-	CChildFrame *pf = GetParentFrame();
+	CMergeEditFrame *pf = GetParentFrame();
 	ASSERT(pf != nullptr);
 	pf->GetHeaderInterface()->SetActive(pane, bActivate);
 }
@@ -3146,7 +3119,8 @@ void CMergeDoc::OnFileReload()
 		fileloc[pane].setPath(m_filePaths[pane]);
 	}
 	CPoint pt = GetActiveMergeView()->GetCursorPos();
-	OpenDocs(m_nBuffers, fileloc, bRO, m_strDesc, GetActiveMergeView()->m_nThisPane, pt.y);
+	OpenDocs(m_nBuffers, fileloc, bRO, m_strDesc);
+	MoveOnLoad(GetActiveMergeView()->m_nThisPane, pt.y);
 }
 
 /**
@@ -3252,18 +3226,17 @@ bool CMergeDoc::GenerateReport(const String& sFileName) const
 		_T("<title>WinMerge File Compare Report</title>\n")
 		_T("<style type=\"text/css\">\n")
 		_T("<!--\n")
-		_T("td,th {word-break: break-all; font-size: %dpt;}\n")
+		_T("table {margin: 0; border: 1px solid #a0a0a0; box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.15);}\n")
+		_T("td,th {word-break: break-all; font-size: %dpt;padding: 0 3px;}\n")
 		_T("tr { vertical-align: top; }\n")
-		_T(".border { border-radius: 6px; border: 1px #a0a0a0 solid; box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.15); overflow: hidden; }\n")
-		_T(".ln {text-align: right; word-break: normal; background-color: lightgrey; box-shadow: inset 1px 0px 0px rgba(0, 0, 0, 0.10);}\n")
+		_T(".ln {text-align: right; word-break: normal; background-color: lightgrey;}\n")
 		_T(".title {color: white; background-color: blue; vertical-align: top; padding: 4px 4px; background: linear-gradient(mediumblue, darkblue);}\n")
 		_T("%s")
 		_T("-->\n")
 		_T("</style>\n")
 		_T("</head>\n")
 		_T("<body>\n")
-		_T("<div class=\"border\">")
-		_T("<table cellspacing=\"0\" cellpadding=\"0\" style=\"width: 100%%; margin: 0; border: none;\">\n")
+		_T("<table cellspacing=\"0\" cellpadding=\"0\" style=\"width:100%%;\">\n")
 		_T("<thead>\n")
 		_T("<tr>\n");
 	String header = 
@@ -3288,16 +3261,12 @@ bool CMergeDoc::GenerateReport(const String& sFileName) const
 		}
 	}
 
-	// left and right title
+	// titles
 	int nBuffer;
 	for (nBuffer = 0; nBuffer < m_nBuffers; nBuffer++)
 	{
-		int nLineNumberColumnWidth = 1;
-		String data = strutils::format(_T("<th class=\"title\" style=\"width:%d%%\"></th>"), 
-			nLineNumberColumnWidth);
-		file.WriteString(data);
-		data = strutils::format(_T("<th class=\"title\" style=\"width:%f%%\">"),
-			(double)(100 - nLineNumberColumnWidth * m_nBuffers) / m_nBuffers);
+		String data = strutils::format(_T("<th colspan=\"2\" class=\"title\" style=\"width:%f%%\">"),
+			(double)100 / m_nBuffers);
 		file.WriteString(data);
 		file.WriteString(ucr::toTString(CMarkdown::Entities(ucr::toUTF8(paths[nBuffer]))));
 		file.WriteString(_T("</th>\n"));
@@ -3328,21 +3297,32 @@ bool CMergeDoc::GenerateReport(const String& sFileName) const
 			if (idx[nBuffer] < nLineCount[nBuffer])
 			{
 				// line number
+				int iVisibleLineNumber = 0;
 				String tdtag = _T("<td class=\"ln\">");
 				DWORD dwFlags = m_ptBuf[nBuffer]->GetLineFlags(idx[nBuffer]);
-				if (nBuffer == 0 && 
-				     (dwFlags & (LF_DIFF | LF_GHOST))!=0 && (idx[nBuffer] == 0 || 
-				    (m_ptBuf[nBuffer]->GetLineFlags(idx[nBuffer] - 1) & (LF_DIFF | LF_GHOST))==0 ))
+				if ((dwFlags & LF_GHOST) == 0 && m_pView[0][nBuffer]->GetViewLineNumbers())
+				{
+					iVisibleLineNumber = m_ptBuf[nBuffer]->ComputeRealLine(idx[nBuffer]) + 1;
+				}
+				if (nBuffer == 0 &&
+					(dwFlags & (LF_DIFF | LF_GHOST)) != 0 && (idx[nBuffer] == 0 ||
+					(m_ptBuf[nBuffer]->GetLineFlags(idx[nBuffer] - 1) & (LF_DIFF | LF_GHOST)) == 0))
 				{
 					++nDiff;
-					tdtag += strutils::format(_T("<a name=\"d%d\" href=\"#d%d\">.</a>"), nDiff, nDiff);
+					if (iVisibleLineNumber > 0)
+					{
+						tdtag += strutils::format(_T("<a name=\"d%d\" href=\"#d%d\">%d</a>"), nDiff, nDiff, iVisibleLineNumber);
+						iVisibleLineNumber = 0;
+					}
+					else
+						tdtag += strutils::format(_T("<a name=\"d%d\" href=\"#d%d\">.</a>"), nDiff, nDiff);
 				}
-				if ((dwFlags & LF_GHOST)==0 && m_pView[0][nBuffer]->GetViewLineNumbers())
-					tdtag += strutils::format(_T("%d</td>"), m_ptBuf[nBuffer]->ComputeRealLine(idx[nBuffer]) + 1);
+				if (iVisibleLineNumber > 0)
+					tdtag += strutils::format(_T("%d</td>"), iVisibleLineNumber);
 				else
 					tdtag += _T("</td>");
 				file.WriteString(tdtag);
-				// write a line on left/right side
+				// line content
 				file.WriteString((LPCTSTR)m_pView[0][nBuffer]->GetHTMLLine(idx[nBuffer], _T("td")));
 				idx[nBuffer]++;
 			}
@@ -3378,7 +3358,6 @@ bool CMergeDoc::GenerateReport(const String& sFileName) const
 	file.WriteString(
 		_T("</tbody>\n")
 		_T("</table>\n")
-		_T("</div>")
 		_T("</body>\n")
 		_T("</html>\n"));
 

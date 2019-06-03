@@ -4,6 +4,7 @@
  * @brief Options initialisation.
  */
 
+#include "pch.h"
 #include <vector>
 #include "OptionsDef.h"
 #include "OptionsMgr.h"
@@ -14,6 +15,7 @@
 #include "DiffWrapper.h" // CMP_CONTENT
 #include "paths.h"
 #include "Environment.h"
+#include "FileTransform.h"
 #include "Constants.h"
 
 // Functions to copy values set by installer from HKLM to HKCU.
@@ -40,16 +42,7 @@ void Init(COptionsMgr *pOptions)
 	static_cast<CRegOptionsMgr *>(pOptions)->SetRegRootKey(_T("Thingamahoochie\\WinMerge\\"));
 
 	LANGID LangId = GetUserDefaultLangID();
-	if (PRIMARYLANGID(LangId) == LANG_JAPANESE)
-	{
-		// Default language to Japanese unless installer set it otherwise
-		pOptions->InitOption(OPT_SELECTED_LANGUAGE, 0x411);
-	}
-	else
-	{
-		// Default language to English unless installer set it otherwise
-		pOptions->InitOption(OPT_SELECTED_LANGUAGE, 0x409);
-	}
+	pOptions->InitOption(OPT_SELECTED_LANGUAGE, static_cast<int>(LangId));
 
 	// Initialise options (name, default value)
 	pOptions->InitOption(OPT_SHOW_UNIQUE_LEFT, true);
@@ -126,6 +119,7 @@ void Init(COptionsMgr *pOptions)
 	pOptions->InitOption(OPT_CMP_MATCH_SIMILAR_LINES, false);
 	pOptions->InitOption(OPT_CMP_STOP_AFTER_FIRST, false);
 	pOptions->InitOption(OPT_CMP_QUICK_LIMIT, 4 * 1024 * 1024); // 4 Megs
+	pOptions->InitOption(OPT_CMP_BINARY_LIMIT, 64 * 1024 * 1024); // 64 Megs
 	pOptions->InitOption(OPT_CMP_COMPARE_THREADS, -1);
 	pOptions->InitOption(OPT_CMP_WALK_UNIQUE_DIRS, false);
 	pOptions->InitOption(OPT_CMP_IGNORE_REPARSE_POINTS, false);
@@ -145,6 +139,7 @@ void Init(COptionsMgr *pOptions)
 	pOptions->InitOption(OPT_CMP_IMG_DIFFBLOCKSIZE, 8);
 	pOptions->InitOption(OPT_CMP_IMG_DIFFCOLORALPHA, 70);
 	pOptions->InitOption(OPT_CMP_IMG_THRESHOLD, 0);
+	pOptions->InitOption(OPT_CMP_IMG_INSERTIONDELETIONDETECTION_MODE, 0);
 
 	pOptions->InitOption(OPT_PROJECTS_PATH, _T(""));
 	pOptions->InitOption(OPT_USE_SYSTEM_TEMP_PATH, true);
@@ -172,11 +167,26 @@ void Init(COptionsMgr *pOptions)
 
 	pOptions->InitOption(OPT_ARCHIVE_ENABLE, 1); // Enable by default
 	pOptions->InitOption(OPT_ARCHIVE_PROBETYPE, false);
+	pOptions->InitOption(OPT_ARCHIVE_FILTER_INDEX, 1);
 
 	pOptions->InitOption(OPT_PLUGINS_ENABLED, true);
 	pOptions->InitOption(OPT_PLUGINS_DISABLED_LIST, _T(""));
+	pOptions->InitOption(OPT_PLUGINS_UNPACKER_MODE, PLUGIN_MANUAL);
+	pOptions->InitOption(OPT_PLUGINS_PREDIFFER_MODE, PLUGIN_MANUAL);
+	pOptions->InitOption(OPT_PLUGINS_UNPACK_DONT_CHECK_EXTENSION, false);
+
+	pOptions->InitOption(OPT_PATCHCREATOR_PATCH_STYLE, 0);
+	pOptions->InitOption(OPT_PATCHCREATOR_CONTEXT_LINES, 0);
+	pOptions->InitOption(OPT_PATCHCREATOR_CASE_SENSITIVE, true);
+	pOptions->InitOption(OPT_PATCHCREATOR_EOL_SENSITIVE, true);
+	pOptions->InitOption(OPT_PATCHCREATOR_IGNORE_BLANK_LINES, false);
+	pOptions->InitOption(OPT_PATCHCREATOR_WHITESPACE, WHITESPACE_COMPARE_ALL);
+	pOptions->InitOption(OPT_PATCHCREATOR_OPEN_TO_EDITOR, false);
+	pOptions->InitOption(OPT_PATCHCREATOR_INCLUDE_CMD_LINE, false);
 
 	pOptions->InitOption(OPT_TABBAR_AUTO_MAXWIDTH, true);
+	pOptions->InitOption(OPT_ACTIVE_FRAME_MAX, true);
+	pOptions->InitOption(OPT_ACTIVE_PANE, 0);
 
 	pOptions->InitOption(OPT_MRU_MAX, 9);
 

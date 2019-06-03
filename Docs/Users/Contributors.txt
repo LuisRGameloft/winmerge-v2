@@ -32,12 +32,16 @@ Localization:
 * Bulgarian:
   Sld <sld|mail.bg>
   tigertron <ivg_18@yahoo.com>
+  Yanko Yankov <yankonik70 at hotmail.com>
 
 * Catalan:
   Jordi Vilar <jvilar@users.sourceforge.net>
+  Domènec <domenec72 at gmail.com>
 
 * Simplified Chinese:
   Liaobin <liaobin@jite. net>
+  xmpdhml <xmpdhml at users.sourceforge.net>
+  MaysWind <i at mayswind.net>
 
 * Traditional Chinese:
   Koko <kokokoko@giga.net.tw>
@@ -68,6 +72,7 @@ Localization:
   Laurent Ganier <ccganier@club-internet.fr>
   Dominique Saussereau <redguff@users.sourceforge.net>
   Matthieu Pupat
+  gandf
 
 * Galician:
   Medulio

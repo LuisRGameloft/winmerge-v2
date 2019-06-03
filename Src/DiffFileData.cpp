@@ -6,7 +6,7 @@
  * @date  Created: 2003-08-22
  */
 
-#include "stdafx.h"
+#include "pch.h"
 #include "DiffFileData.h"
 #include <io.h>
 #include <memory>
@@ -16,11 +16,7 @@
 #include "TFile.h"
 #include "FileTransform.h"
 #include "unicoder.h"
-
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
-
+#include "DebugNew.h"
 
 /**
  * @brief Simple initialization of DiffFileData
@@ -83,7 +79,7 @@ bool DiffFileData::DoOpenFiles()
 		if (m_inf[i].desc == 0)
 		{
 			_tsopen_s(&m_inf[i].desc, TFile(m_FileLocation[i].filepath).wpath().c_str(),
-					O_RDONLY | O_BINARY, _SH_DENYWR, _S_IREAD);
+					O_RDONLY | O_BINARY, _SH_DENYNO, _S_IREAD);
 		}
 		if (m_inf[i].desc < 0)
 			return false;

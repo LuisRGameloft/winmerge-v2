@@ -39,17 +39,19 @@
 #include "WMGotoDlg.h"
 #include "OptionsDef.h"
 #include "SyntaxColors.h"
-#include "ChildFrm.h"
+#include "MergeEditFrm.h"
 #include "MergeLineFlags.h"
 #include "paths.h"
 #include "DropHandler.h"
 #include "DirDoc.h"
+#include "ShellContextMenu.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
 using std::vector;
+using CrystalLineParser::TEXTBLOCK;
 
 /** @brief Timer ID for delayed rescan. */
 const UINT IDT_RESCAN = 2;
@@ -188,6 +190,8 @@ BEGIN_MESSAGE_MAP(CMergeEditView, CCrystalEditViewEx)
 	ON_COMMAND(ID_WINDOW_CHANGE_PANE, OnChangePane)
 	ON_COMMAND(ID_NEXT_PANE, OnChangePane)
 	ON_COMMAND(ID_EDIT_WMGOTO, OnWMGoto)
+	ON_COMMAND(ID_FILE_SHELLMENU, OnShellMenu)
+	ON_UPDATE_COMMAND_UI(ID_FILE_SHELLMENU, OnUpdateShellMenu)
 	ON_COMMAND_RANGE(ID_SCRIPT_FIRST, ID_SCRIPT_LAST, OnScripts)
 	ON_COMMAND(ID_NO_PREDIFFER, OnNoPrediffer)
 	ON_UPDATE_COMMAND_UI(ID_NO_PREDIFFER, OnUpdateNoPrediffer)
@@ -324,6 +328,7 @@ void CMergeEditView::GetFullySelectedDiffs(int & firstDiff, int & lastDiff, int 
 	lastLine = ptEnd.y;
 
 	firstDiff = pd->m_diffList.LineToDiff(firstLine);
+	bool firstLineIsNotInDiff = firstDiff == -1;
 	if (firstDiff == -1)
 	{
 		firstDiff = pd->m_diffList.NextSignificantDiffFromLine(firstLine);
@@ -332,6 +337,7 @@ void CMergeEditView::GetFullySelectedDiffs(int & firstDiff, int & lastDiff, int 
 		firstWordDiff = 0;
 	}
 	lastDiff = pd->m_diffList.LineToDiff(lastLine);
+	bool lastLineIsNotInDiff = lastDiff == -1;	
 	if (lastDiff == -1)
 		lastDiff = pd->m_diffList.PrevSignificantDiffFromLine(lastLine);
 	if (lastDiff < firstDiff)
@@ -344,14 +350,19 @@ void CMergeEditView::GetFullySelectedDiffs(int & firstDiff, int & lastDiff, int 
 	if (firstDiff != -1 && lastDiff != -1)
 	{
 		DIFFRANGE di;
-		vector<WordDiff> worddiffs;
 		
 		if (ptStart != ptEnd)
 		{
+			VERIFY(pd->m_diffList.GetDiff(firstDiff, di));
+			if (lastLineIsNotInDiff && (firstLineIsNotInDiff || di.dbegin == firstLine))
+			{
+				firstWordDiff = -1;
+				return;
+			}
+
 			if (firstWordDiff == -1)
 			{
-				VERIFY(pd->m_diffList.GetDiff(firstDiff, di));
-				pd->GetWordDiffArray(firstLine, &worddiffs);
+				vector<WordDiff> worddiffs = pd->GetWordDiffArrayInDiffBlock(firstDiff);
 				for (size_t i = 0; i < worddiffs.size(); ++i)
 				{
 					if (worddiffs[i].endline[m_nThisPane] > firstLine ||
@@ -370,7 +381,7 @@ void CMergeEditView::GetFullySelectedDiffs(int & firstDiff, int & lastDiff, int 
 			}
 
 			VERIFY(pd->m_diffList.GetDiff(lastDiff, di));
-			pd->GetWordDiffArray(lastLine, &worddiffs);
+			vector<WordDiff> worddiffs = pd->GetWordDiffArrayInDiffBlock(lastDiff);
 			for (size_t i = worddiffs.size() - 1; i != (size_t)-1; --i)
 			{
 				if (worddiffs[i].beginline[m_nThisPane] < lastLine ||
@@ -453,7 +464,9 @@ std::map<int, std::vector<int>> CMergeEditView::GetColumnSelectedWordDiffIndice(
 
 void CMergeEditView::OnInitialUpdate()
 {
+	PushCursors();
 	CCrystalEditViewEx::OnInitialUpdate();
+	PopCursors();
 	SetFont(dynamic_cast<CMainFrame*>(AfxGetMainWnd())->m_lfDiff);
 	SetAlternateDropTarget(new DropHandler(std::bind(&CMergeEditView::OnDropFiles, this, std::placeholders::_1)));
 
@@ -469,7 +482,7 @@ void CMergeEditView::OnActivateView(BOOL bActivate, CView* pActivateView, CView*
 	pDoc->UpdateHeaderActivity(m_nThisPane, !!bActivate);
 }
 
-std::vector<CCrystalTextView::TEXTBLOCK> CMergeEditView::GetAdditionalTextBlocks (int nLineIndex)
+std::vector<TEXTBLOCK> CMergeEditView::GetAdditionalTextBlocks (int nLineIndex)
 {
 	static const std::vector<TEXTBLOCK> emptyBlocks;
 	if (m_bDetailView)
@@ -489,7 +502,6 @@ std::vector<CCrystalTextView::TEXTBLOCK> CMergeEditView::GetAdditionalTextBlocks
 	if (pDoc->IsEditedAfterRescan(m_nThisPane))
 		return emptyBlocks;
 	
-	vector<WordDiff> worddiffs;
 	int nDiff = pDoc->m_diffList.LineToDiff(nLineIndex);
 	if (nDiff == -1)
 		return emptyBlocks;
@@ -505,7 +517,7 @@ std::vector<CCrystalTextView::TEXTBLOCK> CMergeEditView::GetAdditionalTextBlocks
 	if (unemptyLineCount < 2)
 		return emptyBlocks;
 
-	pDoc->GetWordDiffArray(nLineIndex, &worddiffs);
+	vector<WordDiff> worddiffs = pDoc->GetWordDiffArray(nLineIndex);
 	size_t nWordDiffs = worddiffs.size();
 
 	bool lineInCurrentDiff = IsLineInCurrentDiff(nLineIndex);
@@ -2994,6 +3006,34 @@ void CMergeEditView::OnWMGoto()
 	}
 }
 
+void CMergeEditView::OnShellMenu()
+{
+	CFrameWnd *pFrame = GetTopLevelFrame();
+	ASSERT(pFrame != nullptr);
+	BOOL bAutoMenuEnableOld = pFrame->m_bAutoMenuEnable;
+	pFrame->m_bAutoMenuEnable = FALSE;
+
+	String path = GetDocument()->m_filePaths[m_nThisPane];
+	std::unique_ptr<CShellContextMenu> pContextMenu(new CShellContextMenu(0x9000, 0x9FFF));
+	pContextMenu->Initialize();
+	pContextMenu->AddItem(paths::GetParentPath(path), paths::FindFileName(path));
+	pContextMenu->RequeryShellContextMenu();
+	CPoint point;
+	::GetCursorPos(&point);
+	HWND hWnd = GetSafeHwnd();
+	BOOL nCmd = TrackPopupMenu(pContextMenu->GetHMENU(), TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD, point.x, point.y, 0, hWnd, nullptr);
+	if (nCmd)
+		pContextMenu->InvokeCommand(nCmd, hWnd);
+	pContextMenu->ReleaseShellContextMenu();
+
+	pFrame->m_bAutoMenuEnable = bAutoMenuEnableOld;
+}
+
+void CMergeEditView::OnUpdateShellMenu(CCmdUI* pCmdUI)
+{
+	pCmdUI->Enable(!GetDocument()->m_filePaths[m_nThisPane].empty());
+}
+
 /**
  * @brief Reload options.
  */
@@ -4033,7 +4073,7 @@ void CMergeEditView::OnDropFiles(const std::vector<String>& tFiles)
 void CMergeEditView::OnWindowSplit()
 {
 
-	auto& wndSplitter = dynamic_cast<CChildFrame *>(GetParentFrame())->GetSplitter();
+	auto& wndSplitter = dynamic_cast<CMergeEditFrame *>(GetParentFrame())->GetSplitter();
 	CMergeDoc *pDoc = GetDocument();
 	CMergeEditView *pView = pDoc->GetView(0, m_nThisPane);
 	auto* pwndSplitterChild = pView->GetParentSplitter(pView, false);
